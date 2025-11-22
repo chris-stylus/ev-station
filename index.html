@@ -1,315 +1,413 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { initializeApp } from 'firebase/app';
-import { getDatabase, ref, onValue } from 'firebase/database';
-import { 
-  Battery, 
-  BatteryCharging, 
-  Zap, 
-  Thermometer, 
-  Droplets, 
-  Car, 
-  CheckCircle, 
-  AlertCircle, 
-  Wifi, 
-  WifiOff, 
-  History, 
-  Users,
-  Activity
-} from 'lucide-react';
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EV Smart Station Dashboard</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
 
-// --- FIREBASE CONFIGURATION (From your provided code) ---
-const firebaseConfig = {
-  apiKey: "AIzaSyDDWy_6FbRAfr7DdHNUeWXfL7iYkL1-Xa0",
-  authDomain: "ev-station-b57b1.firebaseapp.com",
-  projectId: "ev-station-b57b1",
-  storageBucket: "ev-station-b57b1.firebasestorage.app",
-  messagingSenderId: "601772739558",
-  appId: "1:601772739558:web:d7439ed8bd24479df76427",
-  measurementId: "G-THKSGK2H9Z"
-};
+    <!-- Custom Styles for Scrollbar -->
+    <style>
+        /* Webkit Scrollbar customization to match the design */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f5f9; 
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1; 
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8; 
+        }
+        .mix-blend-multiply {
+            mix-blend-mode: multiply;
+        }
+    </style>
+</head>
+<body class="bg-slate-100 text-slate-800 font-sans pb-10 min-h-screen">
 
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
-const db = getDatabase(app);
-
-// --- COMPONENTS ---
-
-const MetricCard = ({ icon: Icon, label, value, unit, colorClass }) => (
-  <div className="flex items-center p-3 bg-slate-50 rounded-lg border border-slate-100">
-    <div className={`p-2 rounded-full ${colorClass} bg-opacity-10 mr-3`}>
-      <Icon size={20} className={colorClass.replace('bg-', 'text-')} />
-    </div>
-    <div>
-      <p className="text-xs text-slate-500 uppercase font-bold tracking-wider">{label}</p>
-      <p className="text-lg font-semibold text-slate-800">
-        {value} <span className="text-sm font-normal text-slate-400">{unit}</span>
-      </p>
-    </div>
-  </div>
-);
-
-const BatteryVisual = ({ soc, voltage, isCharging }) => {
-  // 18650 logic: standard range roughly 3.0V (0%) to 4.2V (100%)
-  let statusColor = 'bg-emerald-500';
-  if (soc < 20) statusColor = 'bg-red-500';
-  else if (soc < 50) statusColor = 'bg-amber-400';
-
-  return (
-    <div className="relative w-full flex flex-col items-center justify-center py-4">
-      {/* Battery Body */}
-      <div className="relative w-24 h-40 border-4 border-slate-700 rounded-xl bg-slate-200 overflow-hidden shadow-inner">
-        {/* Liquid Level */}
-        <div 
-          className={`absolute bottom-0 left-0 right-0 ${statusColor} transition-all duration-1000 ease-out flex items-center justify-center`}
-          style={{ height: `${soc}%` }}
-        >
-          {isCharging && (
-            <div className="animate-pulse text-white opacity-50">
-              <Zap size={32} fill="currentColor" />
+    <!-- Navbar -->
+    <nav class="bg-slate-900 text-white shadow-xl sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="bg-gradient-to-r from-blue-500 to-cyan-400 p-2 rounded-lg">
+                    <i data-lucide="battery-charging" class="text-white w-6 h-6"></i>
+                </div>
+                <div>
+                    <h1 class="text-lg font-bold tracking-tight">EV Smart Station</h1>
+                    <p class="text-xs text-slate-400">Real-time 18650 Monitoring System</p>
+                </div>
             </div>
-          )}
+            <div id="connection-badge" class="flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold border bg-rose-500/20 border-rose-500/50 text-rose-400 transition-all duration-300">
+                <i data-lucide="wifi-off" class="w-3.5 h-3.5" id="connection-icon"></i>
+                <span id="connection-text">OFFLINE</span>
+            </div>
         </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-8">
         
-        {/* Percentage Text Overlay */}
-        <div className="absolute inset-0 flex flex-col items-center justify-center z-10 mix-blend-multiply">
-          <span className="text-3xl font-black text-slate-800">{soc}%</span>
-        </div>
-      </div>
-      {/* Battery Terminal */}
-      <div className="w-10 h-2 bg-slate-700 rounded-t-md -mt-42 mb-1"></div>
-      
-      <div className="mt-3 text-center">
-        <span className="px-2 py-1 bg-slate-100 rounded text-xs font-mono text-slate-600 border border-slate-200">
-          {voltage} V
-        </span>
-      </div>
-    </div>
-  );
-};
-
-const SlotCard = ({ slotId, data }) => {
-  const isAvailable = data?.IsAvailable === true;
-  const isOccupied = !isAvailable;
-  
-  return (
-    <div className="bg-white rounded-2xl shadow-xl overflow-hidden border-t-4 border-blue-500 transition-all hover:shadow-2xl">
-      {/* Header */}
-      <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
-        <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">
-          <div className="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center text-blue-600 font-black">
-            {slotId.replace('Slot', '')}
-          </div>
-          Charging Station
-        </h2>
-        <div className={`px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1 uppercase tracking-wide ${
-          isAvailable ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'
-        }`}>
-          {isAvailable ? <CheckCircle size={14} /> : <Car size={14} />}
-          {isAvailable ? 'Available' : 'Occupied'}
-        </div>
-      </div>
-
-      <div className="p-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Left: Battery Graphic */}
-          <div className="flex flex-col items-center justify-center bg-slate-50 rounded-xl p-2 border border-slate-100">
-            <BatteryVisual 
-              soc={data?.SoC || 0} 
-              voltage={data?.Voltage || 0}
-              isCharging={isOccupied && (data?.Current > 0.1)}
-            />
-            <p className="text-xs text-slate-400 mt-2 text-center">
-              18650 Lithium Cell
-            </p>
-          </div>
-
-          {/* Right: Metrics Grid */}
-          <div className="grid grid-cols-1 gap-3">
-            <MetricCard 
-              icon={Zap} 
-              label="Power Output" 
-              value={data?.Power || 0} 
-              unit="W" 
-              colorClass="bg-amber-500 text-amber-600"
-            />
-            <MetricCard 
-              icon={Activity} 
-              label="Current Draw" 
-              value={data?.Current || 0} 
-              unit="A" 
-              colorClass="bg-violet-500 text-violet-600"
-            />
-            <div className="grid grid-cols-2 gap-2 mt-2">
-               <div className="bg-blue-50 rounded-lg p-2 text-center">
-                  <Thermometer size={16} className="mx-auto text-blue-400 mb-1" />
-                  <span className="text-sm font-bold text-slate-700">{data?.Temperature || '--'}°C</span>
-               </div>
-               <div className="bg-cyan-50 rounded-lg p-2 text-center">
-                  <Droplets size={16} className="mx-auto text-cyan-400 mb-1" />
-                  <span className="text-sm font-bold text-slate-700">{data?.Humidity || '--'}%</span>
-               </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-const SessionCounter = ({ count }) => (
-  <div className="bg-gradient-to-br from-blue-600 to-indigo-700 rounded-2xl shadow-lg p-6 text-white relative overflow-hidden">
-    <div className="absolute top-0 right-0 opacity-10 transform translate-x-4 -translate-y-4">
-      <Users size={100} />
-    </div>
-    <div className="relative z-10">
-      <h3 className="text-blue-100 font-medium mb-2 flex items-center gap-2">
-        <Users size={18} /> Active Sessions
-      </h3>
-      <div className="flex items-baseline gap-2">
-        <span className="text-5xl font-bold">{count}</span>
-        <span className="text-blue-200 text-sm">Users Authorized</span>
-      </div>
-      <div className="mt-4 h-1 w-full bg-blue-900/30 rounded-full overflow-hidden">
-        <div className="h-full bg-blue-400 animate-pulse w-2/3"></div>
-      </div>
-    </div>
-  </div>
-);
-
-const RFIDLog = ({ logs }) => (
-  <div className="bg-white rounded-2xl shadow-lg border border-slate-100 overflow-hidden flex flex-col h-full">
-    <div className="p-4 border-b border-slate-100 bg-slate-50/50 flex justify-between items-center">
-      <h3 className="font-bold text-slate-700 flex items-center gap-2">
-        <History size={18} className="text-slate-400" /> Access Log
-      </h3>
-      <span className="text-xs bg-slate-200 text-slate-600 px-2 py-1 rounded-full">{logs.length} Events</span>
-    </div>
-    <div className="overflow-y-auto p-0 max-h-[240px] scrollbar-thin scrollbar-thumb-slate-200">
-      {logs.length === 0 ? (
-        <div className="p-8 text-center text-slate-400 text-sm italic">
-          Waiting for RFID scans...
-        </div>
-      ) : (
-        logs.map((log, index) => (
-          <div key={index} className="flex items-center p-3 border-b border-slate-50 hover:bg-slate-50 transition-colors">
-             <div className="w-8 h-8 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center text-xs font-bold mr-3">
-               ID
-             </div>
-             <div className="flex-1">
-               <p className="font-mono text-sm font-semibold text-slate-700">{log.uid}</p>
-               <p className="text-xs text-slate-400">{log.time}</p>
-             </div>
-             <div className="text-xs font-medium text-emerald-600 bg-emerald-50 px-2 py-1 rounded">
-               Authorized
-             </div>
-          </div>
-        ))
-      )}
-    </div>
-  </div>
-);
-
-// --- MAIN APP ---
-
-export default function App() {
-  const [slot1, setSlot1] = useState(null);
-  const [slot2, setSlot2] = useState(null);
-  const [sessions, setSessions] = useState(0);
-  const [connected, setConnected] = useState(false);
-  const [rfidLogs, setRfidLogs] = useState([]);
-  const lastUidRef = useRef("");
-
-  useEffect(() => {
-    // 1. Monitor Connection State
-    const connectedRef = ref(db, ".info/connected");
-    const unsubConnected = onValue(connectedRef, (snap) => {
-      setConnected(!!snap.val());
-    });
-
-    // 2. Monitor Slot 1
-    const slot1Ref = ref(db, '/EV/Slot1');
-    const unsubSlot1 = onValue(slot1Ref, (snap) => setSlot1(snap.val()));
-
-    // 3. Monitor Slot 2
-    const slot2Ref = ref(db, '/EV/Slot2');
-    const unsubSlot2 = onValue(slot2Ref, (snap) => setSlot2(snap.val()));
-
-    // 4. Monitor Sessions
-    const sessionRef = ref(db, '/EV/ActiveSessions');
-    const unsubSession = onValue(sessionRef, (snap) => setSessions(snap.val() || 0));
-
-    // 5. Monitor RFID (And build local history)
-    const rfidRef = ref(db, '/EV/RFID/UID');
-    const unsubRfid = onValue(rfidRef, (snap) => {
-      const uid = snap.val();
-      if (uid && uid !== lastUidRef.current) {
-        lastUidRef.current = uid;
-        const newLog = {
-          uid: uid,
-          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
-        };
-        setRfidLogs(prev => [newLog, ...prev].slice(0, 20)); // Keep last 20
-      }
-    });
-
-    return () => {
-      unsubConnected();
-      unsubSlot1();
-      unsubSlot2();
-      unsubSession();
-      unsubRfid();
-    };
-  }, []);
-
-  return (
-    <div className="min-h-screen bg-slate-100 text-slate-800 font-sans pb-10">
-      {/* Navbar */}
-      <nav className="bg-slate-900 text-white shadow-xl sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="bg-gradient-to-r from-blue-500 to-cyan-400 p-2 rounded-lg">
-              <BatteryCharging size={24} className="text-white" />
-            </div>
-            <div>
-              <h1 className="text-lg font-bold tracking-tight">EV Smart Station</h1>
-              <p className="text-xs text-slate-400">Real-time 18650 Monitoring System</p>
-            </div>
-          </div>
-          <div className={`flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold border ${
-            connected ? 'bg-emerald-500/20 border-emerald-500/50 text-emerald-400' : 'bg-rose-500/20 border-rose-500/50 text-rose-400'
-          }`}>
-            {connected ? <Wifi size={14} /> : <WifiOff size={14} />}
-            {connected ? 'ONLINE' : 'OFFLINE'}
-          </div>
-        </div>
-      </nav>
-
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-8">
-        {/* Status Overview */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-          <div className="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6">
-             {/* Slot 1 */}
-             <SlotCard slotId="Slot1" data={slot1} />
-             {/* Slot 2 */}
-             <SlotCard slotId="Slot2" data={slot2} />
-          </div>
-          
-          <div className="flex flex-col gap-6">
-            {/* Session Counter */}
-            <SessionCounter count={sessions} />
+        <!-- Grid Layout -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
             
-            {/* RFID Logs */}
-            <div className="flex-1 min-h-[300px]">
-              <RFIDLog logs={rfidLogs} />
+            <!-- Left Column: Charging Slots -->
+            <div class="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6">
+                
+                <!-- SLOT 1 CARD -->
+                <div class="bg-white rounded-2xl shadow-xl overflow-hidden border-t-4 border-blue-500 transition-all hover:shadow-2xl">
+                    <!-- Header -->
+                    <div class="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+                        <h2 class="text-lg font-bold text-slate-800 flex items-center gap-2">
+                            <div class="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center text-blue-600 font-black">1</div>
+                            Charging Station
+                        </h2>
+                        <div id="s1-status-badge" class="px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1 uppercase tracking-wide bg-slate-100 text-slate-500">
+                            <i data-lucide="help-circle" class="w-3.5 h-3.5"></i>
+                            <span>Loading...</span>
+                        </div>
+                    </div>
+
+                    <div class="p-6">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <!-- Battery Graphic -->
+                            <div class="flex flex-col items-center justify-center bg-slate-50 rounded-xl p-2 border border-slate-100">
+                                <div class="relative w-full flex flex-col items-center justify-center py-4">
+                                    <div class="relative w-24 h-40 border-4 border-slate-700 rounded-xl bg-slate-200 overflow-hidden shadow-inner">
+                                        <div id="s1-bat-fill" class="absolute bottom-0 left-0 right-0 bg-emerald-500 transition-all duration-1000 ease-out flex items-center justify-center" style="height: 0%">
+                                            <div id="s1-charge-icon" class="animate-pulse text-white opacity-50 hidden">
+                                                <i data-lucide="zap" class="w-8 h-8" fill="currentColor"></i>
+                                            </div>
+                                        </div>
+                                        <div class="absolute inset-0 flex flex-col items-center justify-center z-10 mix-blend-multiply">
+                                            <span class="text-3xl font-black text-slate-800"><span id="s1-soc">0</span>%</span>
+                                        </div>
+                                    </div>
+                                    <div class="w-10 h-2 bg-slate-700 rounded-t-md -mt-42 mb-1"></div>
+                                    <div class="mt-3 text-center">
+                                        <span class="px-2 py-1 bg-slate-100 rounded text-xs font-mono text-slate-600 border border-slate-200">
+                                            <span id="s1-volts">0.0</span> V
+                                        </span>
+                                    </div>
+                                </div>
+                                <p class="text-xs text-slate-400 mt-2 text-center">18650 Lithium Cell</p>
+                            </div>
+
+                            <!-- Metrics -->
+                            <div class="grid grid-cols-1 gap-3">
+                                <!-- Power -->
+                                <div class="flex items-center p-3 bg-slate-50 rounded-lg border border-slate-100">
+                                    <div class="p-2 rounded-full bg-amber-500 bg-opacity-10 mr-3 text-amber-600">
+                                        <i data-lucide="zap" class="w-5 h-5"></i>
+                                    </div>
+                                    <div>
+                                        <p class="text-xs text-slate-500 uppercase font-bold tracking-wider">Power Output</p>
+                                        <p class="text-lg font-semibold text-slate-800"><span id="s1-power">0</span> <span class="text-sm font-normal text-slate-400">W</span></p>
+                                    </div>
+                                </div>
+                                <!-- Current -->
+                                <div class="flex items-center p-3 bg-slate-50 rounded-lg border border-slate-100">
+                                    <div class="p-2 rounded-full bg-violet-500 bg-opacity-10 mr-3 text-violet-600">
+                                        <i data-lucide="activity" class="w-5 h-5"></i>
+                                    </div>
+                                    <div>
+                                        <p class="text-xs text-slate-500 uppercase font-bold tracking-wider">Current Draw</p>
+                                        <p class="text-lg font-semibold text-slate-800"><span id="s1-current">0</span> <span class="text-sm font-normal text-slate-400">A</span></p>
+                                    </div>
+                                </div>
+                                <!-- Env -->
+                                <div class="grid grid-cols-2 gap-2 mt-2">
+                                    <div class="bg-blue-50 rounded-lg p-2 text-center">
+                                        <i data-lucide="thermometer" class="w-4 h-4 mx-auto text-blue-400 mb-1"></i>
+                                        <span class="text-sm font-bold text-slate-700"><span id="s1-temp">--</span>°C</span>
+                                    </div>
+                                    <div class="bg-cyan-50 rounded-lg p-2 text-center">
+                                        <i data-lucide="droplets" class="w-4 h-4 mx-auto text-cyan-400 mb-1"></i>
+                                        <span class="text-sm font-bold text-slate-700"><span id="s1-hum">--</span>%</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- SLOT 2 CARD -->
+                <div class="bg-white rounded-2xl shadow-xl overflow-hidden border-t-4 border-blue-500 transition-all hover:shadow-2xl">
+                    <!-- Header -->
+                    <div class="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+                        <h2 class="text-lg font-bold text-slate-800 flex items-center gap-2">
+                            <div class="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center text-blue-600 font-black">2</div>
+                            Charging Station
+                        </h2>
+                        <div id="s2-status-badge" class="px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1 uppercase tracking-wide bg-slate-100 text-slate-500">
+                            <i data-lucide="help-circle" class="w-3.5 h-3.5"></i>
+                            <span>Loading...</span>
+                        </div>
+                    </div>
+
+                    <div class="p-6">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <!-- Battery Graphic -->
+                            <div class="flex flex-col items-center justify-center bg-slate-50 rounded-xl p-2 border border-slate-100">
+                                <div class="relative w-full flex flex-col items-center justify-center py-4">
+                                    <div class="relative w-24 h-40 border-4 border-slate-700 rounded-xl bg-slate-200 overflow-hidden shadow-inner">
+                                        <div id="s2-bat-fill" class="absolute bottom-0 left-0 right-0 bg-emerald-500 transition-all duration-1000 ease-out flex items-center justify-center" style="height: 0%">
+                                            <div id="s2-charge-icon" class="animate-pulse text-white opacity-50 hidden">
+                                                <i data-lucide="zap" class="w-8 h-8" fill="currentColor"></i>
+                                            </div>
+                                        </div>
+                                        <div class="absolute inset-0 flex flex-col items-center justify-center z-10 mix-blend-multiply">
+                                            <span class="text-3xl font-black text-slate-800"><span id="s2-soc">0</span>%</span>
+                                        </div>
+                                    </div>
+                                    <div class="w-10 h-2 bg-slate-700 rounded-t-md -mt-42 mb-1"></div>
+                                    <div class="mt-3 text-center">
+                                        <span class="px-2 py-1 bg-slate-100 rounded text-xs font-mono text-slate-600 border border-slate-200">
+                                            <span id="s2-volts">0.0</span> V
+                                        </span>
+                                    </div>
+                                </div>
+                                <p class="text-xs text-slate-400 mt-2 text-center">18650 Lithium Cell</p>
+                            </div>
+
+                            <!-- Metrics -->
+                            <div class="grid grid-cols-1 gap-3">
+                                <!-- Power -->
+                                <div class="flex items-center p-3 bg-slate-50 rounded-lg border border-slate-100">
+                                    <div class="p-2 rounded-full bg-amber-500 bg-opacity-10 mr-3 text-amber-600">
+                                        <i data-lucide="zap" class="w-5 h-5"></i>
+                                    </div>
+                                    <div>
+                                        <p class="text-xs text-slate-500 uppercase font-bold tracking-wider">Power Output</p>
+                                        <p class="text-lg font-semibold text-slate-800"><span id="s2-power">0</span> <span class="text-sm font-normal text-slate-400">W</span></p>
+                                    </div>
+                                </div>
+                                <!-- Current -->
+                                <div class="flex items-center p-3 bg-slate-50 rounded-lg border border-slate-100">
+                                    <div class="p-2 rounded-full bg-violet-500 bg-opacity-10 mr-3 text-violet-600">
+                                        <i data-lucide="activity" class="w-5 h-5"></i>
+                                    </div>
+                                    <div>
+                                        <p class="text-xs text-slate-500 uppercase font-bold tracking-wider">Current Draw</p>
+                                        <p class="text-lg font-semibold text-slate-800"><span id="s2-current">0</span> <span class="text-sm font-normal text-slate-400">A</span></p>
+                                    </div>
+                                </div>
+                                <!-- Env -->
+                                <div class="grid grid-cols-2 gap-2 mt-2">
+                                    <div class="bg-blue-50 rounded-lg p-2 text-center">
+                                        <i data-lucide="thermometer" class="w-4 h-4 mx-auto text-blue-400 mb-1"></i>
+                                        <span class="text-sm font-bold text-slate-700"><span id="s2-temp">--</span>°C</span>
+                                    </div>
+                                    <div class="bg-cyan-50 rounded-lg p-2 text-center">
+                                        <i data-lucide="droplets" class="w-4 h-4 mx-auto text-cyan-400 mb-1"></i>
+                                        <span class="text-sm font-bold text-slate-700"><span id="s2-hum">--</span>%</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
-          </div>
+
+            <!-- Right Column: Stats & Logs -->
+            <div class="flex flex-col gap-6">
+                
+                <!-- Session Counter -->
+                <div class="bg-gradient-to-br from-blue-600 to-indigo-700 rounded-2xl shadow-lg p-6 text-white relative overflow-hidden">
+                    <div class="absolute top-0 right-0 opacity-10 transform translate-x-4 -translate-y-4">
+                        <i data-lucide="users" class="w-32 h-32"></i>
+                    </div>
+                    <div class="relative z-10">
+                        <h3 class="text-blue-100 font-medium mb-2 flex items-center gap-2">
+                            <i data-lucide="users" class="w-5 h-5"></i> Active Sessions
+                        </h3>
+                        <div class="flex items-baseline gap-2">
+                            <span id="session-count" class="text-5xl font-bold">0</span>
+                            <span class="text-blue-200 text-sm">Users Authorized</span>
+                        </div>
+                        <div class="mt-4 h-1 w-full bg-blue-900/30 rounded-full overflow-hidden">
+                            <div class="h-full bg-blue-400 animate-pulse w-2/3"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- RFID Log -->
+                <div class="bg-white rounded-2xl shadow-lg border border-slate-100 overflow-hidden flex flex-col flex-1 min-h-[300px]">
+                    <div class="p-4 border-b border-slate-100 bg-slate-50/50 flex justify-between items-center">
+                        <h3 class="font-bold text-slate-700 flex items-center gap-2">
+                            <i data-lucide="history" class="w-4 h-4 text-slate-400"></i> Access Log
+                        </h3>
+                        <span id="log-count" class="text-xs bg-slate-200 text-slate-600 px-2 py-1 rounded-full">0 Events</span>
+                    </div>
+                    <div id="rfid-log-container" class="overflow-y-auto p-0 max-h-[300px]">
+                        <div class="p-8 text-center text-slate-400 text-sm italic">
+                            Waiting for RFID scans...
+                        </div>
+                    </div>
+                </div>
+
+            </div>
         </div>
 
-        {/* Footer Info */}
-        <div className="text-center text-slate-400 text-sm mt-12">
-           <p>© 2024 EV Smart Station System • Powered by ESP32 & Firebase</p>
+        <!-- Footer -->
+        <div class="text-center text-slate-400 text-sm mt-12">
+            <p>© 2024 EV Smart Station System • Powered by ESP32 & Firebase</p>
         </div>
-      </main>
-    </div>
-  );
-}
+    </main>
+
+    <!-- JAVASCRIPT LOGIC -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-app.js";
+        import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-database.js";
+
+        // Configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyDDWy_6FbRAfr7DdHNUeWXfL7iYkL1-Xa0",
+            authDomain: "ev-station-b57b1.firebaseapp.com",
+            projectId: "ev-station-b57b1",
+            storageBucket: "ev-station-b57b1.firebasestorage.app",
+            messagingSenderId: "601772739558",
+            appId: "1:601772739558:web:d7439ed8bd24479df76427",
+            measurementId: "G-THKSGK2H9Z"
+        };
+
+        // Init Firebase
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+
+        // Initial Icon Render
+        lucide.createIcons();
+
+        // State for RFID Logic
+        let lastUid = "";
+        let logCount = 0;
+        const MAX_LOGS = 20;
+
+        // --- UI UPDATERS ---
+
+        // 1. Connection Status
+        const connectedRef = ref(db, ".info/connected");
+        onValue(connectedRef, (snap) => {
+            const isConnected = !!snap.val();
+            const badge = document.getElementById('connection-badge');
+            const text = document.getElementById('connection-text');
+            const icon = document.getElementById('connection-icon');
+
+            if (isConnected) {
+                badge.className = "flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold border transition-all duration-300 bg-emerald-500/20 border-emerald-500/50 text-emerald-400";
+                text.textContent = "ONLINE";
+                icon.setAttribute('data-lucide', 'wifi');
+            } else {
+                badge.className = "flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold border transition-all duration-300 bg-rose-500/20 border-rose-500/50 text-rose-400";
+                text.textContent = "OFFLINE";
+                icon.setAttribute('data-lucide', 'wifi-off');
+            }
+            lucide.createIcons();
+        });
+
+        // 2. Update Slot UI Helper
+        const updateSlot = (idPrefix, data) => {
+            if(!data) return;
+
+            // Values
+            document.getElementById(`${idPrefix}-volts`).textContent = data.Voltage || 0;
+            document.getElementById(`${idPrefix}-current`).textContent = data.Current || 0;
+            document.getElementById(`${idPrefix}-power`).textContent = data.Power || 0;
+            document.getElementById(`${idPrefix}-soc`).textContent = data.SoC || 0;
+            document.getElementById(`${idPrefix}-temp`).textContent = data.Temperature || '--';
+            document.getElementById(`${idPrefix}-hum`).textContent = data.Humidity || '--';
+
+            // Status Badge
+            const isAvailable = data.IsAvailable === true;
+            const badge = document.getElementById(`${idPrefix}-status-badge`);
+            if (isAvailable) {
+                badge.className = "px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1 uppercase tracking-wide bg-emerald-100 text-emerald-700";
+                badge.innerHTML = `<i data-lucide="check-circle" class="w-3.5 h-3.5"></i> <span>Available</span>`;
+            } else {
+                badge.className = "px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1 uppercase tracking-wide bg-rose-100 text-rose-700";
+                badge.innerHTML = `<i data-lucide="car" class="w-3.5 h-3.5"></i> <span>Occupied</span>`;
+            }
+
+            // Battery Visual
+            const soc = data.SoC || 0;
+            const fill = document.getElementById(`${idPrefix}-bat-fill`);
+            const chargeIcon = document.getElementById(`${idPrefix}-charge-icon`);
+            
+            fill.style.height = `${soc}%`;
+
+            // Color Logic (18650)
+            fill.classList.remove('bg-emerald-500', 'bg-amber-400', 'bg-red-500');
+            if(soc < 20) fill.classList.add('bg-red-500');
+            else if(soc < 50) fill.classList.add('bg-amber-400');
+            else fill.classList.add('bg-emerald-500');
+
+            // Charging Animation
+            const isCharging = !isAvailable && (parseFloat(data.Current) > 0.1);
+            if(isCharging) {
+                chargeIcon.classList.remove('hidden');
+            } else {
+                chargeIcon.classList.add('hidden');
+            }
+
+            lucide.createIcons();
+        };
+
+        // 3. Listeners
+        onValue(ref(db, '/EV/Slot1'), (snap) => updateSlot('s1', snap.val()));
+        onValue(ref(db, '/EV/Slot2'), (snap) => updateSlot('s2', snap.val()));
+
+        onValue(ref(db, '/EV/ActiveSessions'), (snap) => {
+            document.getElementById('session-count').textContent = snap.val() || 0;
+        });
+
+        // 4. RFID Logic
+        const rfidContainer = document.getElementById('rfid-log-container');
+        
+        onValue(ref(db, '/EV/RFID/UID'), (snap) => {
+            const uid = snap.val();
+            if(uid && uid !== lastUid) {
+                lastUid = uid;
+                logCount++;
+                
+                // Remove "Waiting" text if first log
+                if(rfidContainer.innerText.includes("Waiting")) {
+                    rfidContainer.innerHTML = '';
+                }
+
+                // Create Log Element
+                const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+                const logEntry = document.createElement('div');
+                logEntry.className = "flex items-center p-3 border-b border-slate-50 hover:bg-slate-50 transition-colors animate-fade-in-down";
+                logEntry.innerHTML = `
+                    <div class="w-8 h-8 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center text-xs font-bold mr-3">ID</div>
+                    <div class="flex-1">
+                        <p class="font-mono text-sm font-semibold text-slate-700">${uid}</p>
+                        <p class="text-xs text-slate-400">${time}</p>
+                    </div>
+                    <div class="text-xs font-medium text-emerald-600 bg-emerald-50 px-2 py-1 rounded">Authorized</div>
+                `;
+
+                // Prepend
+                rfidContainer.insertBefore(logEntry, rfidContainer.firstChild);
+                
+                // Limit logs
+                if(rfidContainer.children.length > MAX_LOGS) {
+                    rfidContainer.removeChild(rfidContainer.lastChild);
+                }
+
+                // Update Count Badge
+                document.getElementById('log-count').textContent = `${Math.min(logCount, MAX_LOGS)}${logCount > MAX_LOGS ? '+' : ''} Events`;
+            }
+        });
+
+    </script>
+</body>
+</html>
