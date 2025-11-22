@@ -1,270 +1,380 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>EV Charging Station Dashboard</title>
-<script type="module">
-import { initializeApp } from
-"https://www.gstatic.com/firebasejs/11.8.1/firebase-app.js";
-import { getDatabase, ref, onValue } from
-"https://www.gstatic.com/firebasejs/11.8.1/firebase-database.js";
-const firebaseConfig = {
-  apiKey: "AIzaSyAQ37Fp-3ObwHa-62_Yrplwuyz5vb2nR2Q",
-  authDomain: "qr-wallet-2ef48.firebaseapp.com",
-  projectId: "qr-wallet-2ef48",
-  storageBucket: "qr-wallet-2ef48.firebasestorage.app",
-  messagingSenderId: "755057942199",
-  appId: "1:755057942199:web:d50b0802728bfdc91f3732",
-  measurementId: "G-4PV7G9ZCH7"
-};
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
-const database = getDatabase(app);
-</script>
-<style>
-* {
-box-sizing: border-box;
-}
-body {
-font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-background: #f0f4f8;
-margin: 0;
-padding: 0;
-color: #333;
-}
-header {
-background: #005f73;
-color: #fff;
-padding: 20px 30px;
-font-size: 1.6rem;
-font-weight: 700;
-text-align: center;
-letter-spacing: 1.2px;
-box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-}
-main {
-max-width: 1000px;
-margin: 30px auto;
-padding: 0 20px;
-}
-.slots {
-display: flex;
-justify-content: space-between;
-gap: 20px;
-margin-bottom: 40px;
-}
-.slot-card {
-background: #fff;
-flex: 1;
-padding: 25px 20px;
-border-radius: 12px;
-box-shadow: 0 4px 12px rgb(0 0 0 / 0.1);
-transition: transform 0.3s ease;
-min-width: 180px;
-}
-.slot-card:hover {
-transform: translateY(-6px);
-box-shadow: 0 10px 25px rgb(0 0 0 / 0.15);
-}
-.slot-header {
-font-weight: 700;
-font-size: 1.3rem;
-color: #0a9396;
-margin-bottom: 15px;
-border-bottom: 2px solid #94d2bd;
-padding-bottom: 8px;
-}
-.slot-detail {
-font-size: 1.1rem;
-margin: 8px 0;
-}
-.slot-label {
-font-weight: 600;
-color: #555;
-}
-.rfid-log {
-background: #fff;
-border-radius: 12px;
-padding: 20px;
-box-shadow: 0 4px 15px rgb(0 0 0 / 0.07);
-}
-.log-title {
-font-weight: 700;
-font-size: 1.4rem;
-color: #0077b6;
-margin-bottom: 18px;
-border-bottom: 2px solid #90e0ef;
-padding-bottom: 10px;
-}
-.rfid-entry {
-background: #caf0f8;
-margin-bottom: 14px;
-border-radius: 10px;
-padding: 12px 15px;
-display: flex;
-justify-content: space-between;
-align-items: center;
-font-weight: 600;
-color: #0077b6;
-box-shadow: 0 2px 8px rgb(0 119 182 / 0.1);
-transition: background 0.3s ease;
-}
-.rfid-entry.exit {
-background: #ade8f4;
-color: #023e8a;
-}
-.rfid-message {
-font-size: 1.1rem;
-}
-.rfid-id {
-font-family: monospace;
-background: #0077b6;
-color: #caf0f8;
-border-radius: 6px;
-padding: 3px 10px;
-font-weight: 700;
-letter-spacing: 1.2px;
-}
-.queue-card {
-background: #fff;
-padding: 25px 20px;
-border-radius: 12px;
-box-shadow: 0 4px 12px rgb(0 0 0 / 0.1);
-font-weight: 700;
-color: #d00000;
-font-size: 1.5rem;
-display: flex;
-justify-content: center;
-align-items: center;
-min-width: 180px;
-transition: transform 0.3s ease;
-}
-.queue-card:hover {
-transform: translateY(-6px);
-box-shadow: 0 10px 25px rgb(208 0 0 / 0.15);
-}
-@media (max-width: 700px) {
-.slots {
-flex-wrap: wrap;
-gap: 15px;
-justify-content: center;
-}
-.slot-card, .queue-card {
-min-width: 260px;
-}
-}
-@media (max-width: 400px) {
-.slot-card, .queue-card {
-min-width: 100%;
-}
-}
-</style>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>EV Charging Station Dashboard</title>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f0f4f8;
+            margin: 0;
+            padding: 0;
+            color: #333;
+        }
+
+        header {
+            background: #005f73;
+            color: #fff;
+            padding: 20px 30px;
+            font-size: 1.6rem;
+            font-weight: 700;
+            text-align: center;
+            letter-spacing: 1.2px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+
+        main {
+            max-width: 1000px;
+            margin: 30px auto;
+            padding: 0 20px;
+        }
+
+        .slots {
+            display: flex;
+            justify-content: space-between;
+            gap: 20px;
+            margin-bottom: 40px;
+        }
+
+        .slot-card {
+            background: #fff;
+            flex: 1;
+            padding: 25px 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgb(0 0 0 / 0.1);
+            transition: transform 0.3s ease;
+            min-width: 180px;
+        }
+
+        .slot-card:hover {
+            transform: translateY(-6px);
+            box-shadow: 0 10px 25px rgb(0 0 0 / 0.15);
+        }
+
+        .slot-header {
+            font-weight: 700;
+            font-size: 1.3rem;
+            color: #0a9396;
+            margin-bottom: 15px;
+            border-bottom: 2px solid #94d2bd;
+            padding-bottom: 8px;
+        }
+
+        .slot-detail {
+            font-size: 1.1rem;
+            margin: 8px 0;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .slot-label {
+            font-weight: 600;
+            color: #555;
+        }
+
+        /* Specific style for environmental data */
+        .env-data {
+            color: #ca6702; /* Orange-ish for temp/hum */
+            font-weight: bold;
+        }
+
+        .battery-data {
+            color: #005f73;
+            font-weight: bold;
+        }
+        
+        .power-data {
+            color: #ae2012; /* Reddish for power/current */
+            font-weight: bold;
+        }
+
+        .rfid-log {
+            background: #fff;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 4px 15px rgb(0 0 0 / 0.07);
+        }
+
+        .log-title {
+            font-weight: 700;
+            font-size: 1.4rem;
+            color: #0077b6;
+            margin-bottom: 18px;
+            border-bottom: 2px solid #90e0ef;
+            padding-bottom: 10px;
+        }
+
+        .rfid-entry {
+            background: #caf0f8;
+            margin-bottom: 14px;
+            border-radius: 10px;
+            padding: 12px 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-weight: 600;
+            color: #0077b6;
+            box-shadow: 0 2px 8px rgb(0 119 182 / 0.1);
+            transition: background 0.3s ease;
+        }
+
+        .rfid-entry.exit {
+            background: #ade8f4;
+            color: #023e8a;
+        }
+
+        .rfid-message {
+            font-size: 1.1rem;
+        }
+
+        .rfid-id {
+            font-family: monospace;
+            background: #0077b6;
+            color: #caf0f8;
+            border-radius: 6px;
+            padding: 3px 10px;
+            font-weight: 700;
+            letter-spacing: 1.2px;
+        }
+
+        .queue-card {
+            background: #fff;
+            padding: 25px 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgb(0 0 0 / 0.1);
+            font-weight: 700;
+            color: #d00000;
+            font-size: 1.5rem;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-width: 180px;
+            transition: transform 0.3s ease;
+        }
+
+        .queue-card:hover {
+            transform: translateY(-6px);
+            box-shadow: 0 10px 25px rgb(208 0 0 / 0.15);
+        }
+
+        @media (max-width: 700px) {
+            .slots {
+                flex-wrap: wrap;
+                gap: 15px;
+                justify-content: center;
+            }
+
+            .slot-card, .queue-card {
+                min-width: 260px;
+            }
+        }
+
+        @media (max-width: 400px) {
+            .slot-card, .queue-card {
+                min-width: 100%;
+            }
+        }
+    </style>
 </head>
 <body>
-<header>EV Charging Station Dashboard</header>
-<main>
-<section class="slots">
-<article class="slot-card" id="slot1">
-<div class="slot-header">Slot 1</div>
-<div class="slot-detail"><span class="slot-label">Voltage:</span>
-<span id="voltage1">-- V</span></div>
-<div class="slot-detail"><span class="slot-label">SoC:</span>
-<span id="soc1">-- %</span></div>
-</article>
-<article class="slot-card" id="slot2">
-<div class="slot-header">Slot 2</div>
-<div class="slot-detail"><span class="slot-label">Voltage:</span>
-<span id="voltage2">-- V</span></div>
-<div class="slot-detail"><span class="slot-label">SoC:</span>
-<span id="soc2">-- %</span></div>
-</article>
-<article class="queue-card" id="queueCountCard">
-Waiting Queue: <span id="queueCount">0</span>
-</article>
-</section>
-<section class="rfid-log">
-<div class="log-title">RFID Scan Log</div>
-<div id="rfidContainer">
-<!-- Dynamic RFID scan entries will appear here -->
-</div>
-</section>
-</main>
-<script type="module">
-import { initializeApp } from
-"https://www.gstatic.com/firebasejs/11.8.1/firebase-app.js";
-import { getDatabase, ref, onValue } from
-"https://www.gstatic.com/firebasejs/11.8.1/firebase-database.js";
-const firebaseConfig = {
-apiKey: "AIzaSyAEe3cscGJDzG0zMPi9dRSuOVo16lBEja8",
-authDomain: "test-d3d2a.firebaseapp.com",
-databaseURL: "https://test-d3d2a-default-rtdb.firebaseio.com",
-projectId: "test-d3d2a",
-storageBucket: "test-d3d2a.firebasestorage.app",
-messagingSenderId: "127131720612",
-appId: "1:127131720612:web:e226dc8fc4c78e276a3f31",
-measurementId: "G-X57NNFY6EQ"
-};
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
-const database = getDatabase(app);
-const rfidContainer = document.getElementById('rfidContainer');
-let lastUID = '';
-// Update slot data
-function updateSlots(slotName, voltage, soc) {
-document.getElementById(`voltage${slotName}`).textContent = voltage
-? voltage.toFixed(2) + ' V' : '-- V';
-document.getElementById(`soc${slotName}`).textContent = soc !==
-null ? soc + ' %' : '-- %';
-}
-// Update queue waiting count
-function updateQueueCount(count) {
-document.getElementById('queueCount').textContent = count >= 0 ?
-count : 0;
-}
-// Adds or updates an RFID entry in the log
-function logRFIDScan(uid, action) {
-let entryDiv = document.getElementById('rfid-' + uid);
-const messageText = action === 'welcome' ? 'Welcome' : 'Thank you';
-const isExit = action === 'thankyou';
-if (!entryDiv) {
-entryDiv = document.createElement('div');
-entryDiv.id = 'rfid-' + uid;
-entryDiv.className = 'rfid-entry' + (isExit ? ' exit' : '');
-entryDiv.innerHTML = `<span class="rfidmessage">${messageText}</span> <span class="rfid-id">(${uid})</span>`;
-rfidContainer.prepend(entryDiv);
-} else {
-entryDiv.className = 'rfid-entry' + (isExit ? ' exit' : '');
-entryDiv.querySelector('.rfid-message').textContent =
-messageText;
-entryDiv.querySelector('.rfid-id').textContent = `(${uid})`;
-}
-}
-// Listen for slot data changes
-onValue(ref(database, '/EV/Slot1'), (snapshot) => {
-const data = snapshot.val();
-updateSlots('1', data?.Voltage, data?.SoC);
-});
-onValue(ref(database, '/EV/Slot2'), (snapshot) => {
-const data = snapshot.val();
-updateSlots('2', data?.Voltage, data?.SoC);
-});
-// Listen for waiting queue count
-onValue(ref(database, '/EV/WaitingCount'), (snapshot) => {
-const count = snapshot.val();
-updateQueueCount(count);
-});
-// Listen for RFID changes
-onValue(ref(database, '/EV/RFID/UID'), (snapshot) => {
-const uid = snapshot.val();
-if (uid && uid !== lastUID) {
-logRFIDScan(uid, 'welcome');
-lastUID = uid;
-} else if (uid && uid === lastUID) {
-logRFIDScan(uid, 'thankyou');
-lastUID = '';
-}
-});
-</script>
+    <header>EV Charging Station Dashboard</header>
+    <main>
+        <section class="slots">
+            <!-- Slot 1 Card -->
+            <article class="slot-card" id="slot1">
+                <div class="slot-header">Slot 1</div>
+                
+                <!-- Electrical Info -->
+                <div class="slot-detail">
+                    <span class="slot-label">Voltage:</span>
+                    <span id="voltage1" class="battery-data">-- V</span>
+                </div>
+                <div class="slot-detail">
+                    <span class="slot-label">Current:</span>
+                    <span id="current1" class="power-data">-- A</span>
+                </div>
+                <div class="slot-detail">
+                    <span class="slot-label">Power:</span>
+                    <span id="power1" class="power-data">-- W</span>
+                </div>
+                <div class="slot-detail">
+                    <span class="slot-label">SoC:</span>
+                    <span id="soc1" class="battery-data">-- %</span>
+                </div>
+                
+                <hr style="border: 0; border-top: 1px solid #eee; margin: 10px 0;">
+                
+                <!-- DHT11 Sensor Info -->
+                <div class="slot-detail">
+                    <span class="slot-label">Temp:</span>
+                    <span id="temp1" class="env-data">-- °C</span>
+                </div>
+                <div class="slot-detail">
+                    <span class="slot-label">Humidity:</span>
+                    <span id="hum1" class="env-data">-- %</span>
+                </div>
+            </article>
+
+            <!-- Slot 2 Card -->
+            <article class="slot-card" id="slot2">
+                <div class="slot-header">Slot 2</div>
+                
+                <!-- Electrical Info -->
+                <div class="slot-detail">
+                    <span class="slot-label">Voltage:</span>
+                    <span id="voltage2" class="battery-data">-- V</span>
+                </div>
+                <div class="slot-detail">
+                    <span class="slot-label">Current:</span>
+                    <span id="current2" class="power-data">-- A</span>
+                </div>
+                <div class="slot-detail">
+                    <span class="slot-label">Power:</span>
+                    <span id="power2" class="power-data">-- W</span>
+                </div>
+                <div class="slot-detail">
+                    <span class="slot-label">SoC:</span>
+                    <span id="soc2" class="battery-data">-- %</span>
+                </div>
+
+                <hr style="border: 0; border-top: 1px solid #eee; margin: 10px 0;">
+
+                <!-- DHT11 Sensor Info -->
+                <div class="slot-detail">
+                    <span class="slot-label">Temp:</span>
+                    <span id="temp2" class="env-data">-- °C</span>
+                </div>
+                <div class="slot-detail">
+                    <span class="slot-label">Humidity:</span>
+                    <span id="hum2" class="env-data">-- %</span>
+                </div>
+            </article>
+
+            <!-- Queue Card -->
+            <article class="queue-card" id="queueCountCard">
+                Waiting Queue: &nbsp;<span id="queueCount">0</span>
+            </article>
+        </section>
+
+        <section class="rfid-log">
+            <div class="log-title">RFID Scan Log</div>
+            <div id="rfidContainer">
+                <!-- Dynamic RFID scan entries will appear here -->
+            </div>
+        </section>
+    </main>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.8.1/firebase-app.js";
+        import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/11.8.1/firebase-database.js";
+
+        // Configuration matching your Arduino Code (test-d3d2a)
+        const firebaseConfig = {
+         apiKey: "AIzaSyDDWy_6FbRAfr7DdHNUeWXfL7iYkL1-Xa0",
+         authDomain: "ev-station-b57b1.firebaseapp.com",
+         projectId: "ev-station-b57b1",
+         storageBucket: "ev-station-b57b1.firebasestorage.app",
+         messagingSenderId: "601772739558",
+         appId: "1:601772739558:web:d7439ed8bd24479df76427",
+         measurementId: "G-THKSGK2H9Z"
+      };
+
+
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const database = getDatabase(app);
+        const rfidContainer = document.getElementById('rfidContainer');
+        let lastUID = '';
+
+        // Update slot data (Includes Voltage, Current, Power, SoC, Temp, Humidity)
+        function updateSlots(slotName, voltage, current, power, soc, temp, hum) {
+            // Update Voltage
+            const vEl = document.getElementById(`voltage${slotName}`);
+            if(vEl) vEl.textContent = voltage ? voltage.toFixed(2) + ' V' : '-- V';
+
+            // Update Current
+            const cEl = document.getElementById(`current${slotName}`);
+            if(cEl) cEl.textContent = current !== undefined ? current.toFixed(2) + ' A' : '-- A';
+
+            // Update Power
+            const pEl = document.getElementById(`power${slotName}`);
+            if(pEl) pEl.textContent = power !== undefined ? power.toFixed(2) + ' W' : '-- W';
+
+            // Update SoC
+            const sEl = document.getElementById(`soc${slotName}`);
+            if(sEl) sEl.textContent = soc !== null && soc !== undefined ? soc + ' %' : '-- %';
+
+            // Update Temperature
+            const tEl = document.getElementById(`temp${slotName}`);
+            if(tEl) tEl.textContent = temp ? temp.toFixed(1) + ' °C' : '-- °C';
+
+            // Update Humidity
+            const hEl = document.getElementById(`hum${slotName}`);
+            if(hEl) hEl.textContent = hum ? hum.toFixed(1) + ' %' : '-- %';
+        }
+
+        // Update queue waiting count
+        function updateQueueCount(count) {
+            document.getElementById('queueCount').textContent = count >= 0 ? count : 0;
+        }
+
+        // Adds or updates an RFID entry in the log
+        function logRFIDScan(uid, action) {
+            let entryDiv = document.getElementById('rfid-' + uid);
+            const messageText = action === 'welcome' ? 'Welcome' : 'Thank you';
+            const isExit = action === 'thankyou';
+
+            if (!entryDiv) {
+                entryDiv = document.createElement('div');
+                entryDiv.id = 'rfid-' + uid;
+                entryDiv.className = 'rfid-entry' + (isExit ? ' exit' : '');
+                entryDiv.innerHTML = `<span class="rfid-message">${messageText}</span> <span class="rfid-id">(${uid})</span>`;
+                rfidContainer.prepend(entryDiv);
+            } else {
+                entryDiv.className = 'rfid-entry' + (isExit ? ' exit' : '');
+                entryDiv.querySelector('.rfid-message').textContent = messageText;
+                entryDiv.querySelector('.rfid-id').textContent = `(${uid})`;
+            }
+        }
+
+        // Listen for Slot 1 data changes
+        onValue(ref(database, '/EV/Slot1'), (snapshot) => {
+            const data = snapshot.val();
+            if (data) {
+                updateSlots('1', data.Voltage, data.Current, data.Power, data.SoC, data.Temperature, data.Humidity);
+            }
+        });
+
+        // Listen for Slot 2 data changes
+        onValue(ref(database, '/EV/Slot2'), (snapshot) => {
+            const data = snapshot.val();
+            if (data) {
+                updateSlots('2', data.Voltage, data.Current, data.Power, data.SoC, data.Temperature, data.Humidity);
+            }
+        });
+
+        // Listen for waiting queue count
+        onValue(ref(database, '/EV/WaitingCount'), (snapshot) => {
+            const count = snapshot.val();
+            updateQueueCount(count);
+        });
+
+        // Listen for RFID changes
+        onValue(ref(database, '/EV/RFID/UID'), (snapshot) => {
+            const uid = snapshot.val();
+            if (uid && uid !== lastUID) {
+                logRFIDScan(uid, 'welcome');
+                lastUID = uid;
+            } else if (uid && uid === lastUID) {
+                logRFIDScan(uid, 'thankyou');
+                lastUID = '';
+            }
+        });
+    </script>
 </body>
 </html>
