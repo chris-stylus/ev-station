@@ -1,586 +1,315 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>EV Charging Station Dashboard</title>
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
-    <style>
-        :root {
-            --primary-color: #00b4d8;
-            --secondary-color: #0077b6;
-            --accent-color: #48cae4;
-            --bg-color: #f0f2f5;
-            --card-bg: #ffffff;
-            --text-main: #2b2d42;
-            --text-light: #8d99ae;
-            --success: #2a9d8f;
-            --warning: #e9c46a;
-            --danger: #e76f51;
-            --occupied: #d62828;
-            --available: #588157;
-        }
+import React, { useState, useEffect, useRef } from 'react';
+import { initializeApp } from 'firebase/app';
+import { getDatabase, ref, onValue } from 'firebase/database';
+import { 
+  Battery, 
+  BatteryCharging, 
+  Zap, 
+  Thermometer, 
+  Droplets, 
+  Car, 
+  CheckCircle, 
+  AlertCircle, 
+  Wifi, 
+  WifiOff, 
+  History, 
+  Users,
+  Activity
+} from 'lucide-react';
 
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-        }
+// --- FIREBASE CONFIGURATION (From your provided code) ---
+const firebaseConfig = {
+  apiKey: "AIzaSyDDWy_6FbRAfr7DdHNUeWXfL7iYkL1-Xa0",
+  authDomain: "ev-station-b57b1.firebaseapp.com",
+  projectId: "ev-station-b57b1",
+  storageBucket: "ev-station-b57b1.firebasestorage.app",
+  messagingSenderId: "601772739558",
+  appId: "1:601772739558:web:d7439ed8bd24479df76427",
+  measurementId: "G-THKSGK2H9Z"
+};
 
-        body {
-            background-color: var(--bg-color);
-            color: var(--text-main);
-            padding-bottom: 40px;
-        }
+// Initialize Firebase
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
 
-        /* Header */
-        header {
-            background: linear-gradient(135deg, var(--secondary-color), var(--primary-color));
-            color: white;
-            padding: 20px;
-            text-align: center;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-            margin-bottom: 30px;
-            position: relative;
-        }
+// --- COMPONENTS ---
 
-        header h1 {
-            font-size: 1.8rem;
-            margin-bottom: 5px;
-        }
+const MetricCard = ({ icon: Icon, label, value, unit, colorClass }) => (
+  <div className="flex items-center p-3 bg-slate-50 rounded-lg border border-slate-100">
+    <div className={`p-2 rounded-full ${colorClass} bg-opacity-10 mr-3`}>
+      <Icon size={20} className={colorClass.replace('bg-', 'text-')} />
+    </div>
+    <div>
+      <p className="text-xs text-slate-500 uppercase font-bold tracking-wider">{label}</p>
+      <p className="text-lg font-semibold text-slate-800">
+        {value} <span className="text-sm font-normal text-slate-400">{unit}</span>
+      </p>
+    </div>
+  </div>
+);
 
-        .status-indicator {
-            position: absolute;
-            top: 20px;
-            right: 20px;
-            font-size: 0.8rem;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            background: rgba(255,255,255,0.2);
-            padding: 5px 10px;
-            border-radius: 20px;
-        }
+const BatteryVisual = ({ soc, voltage, isCharging }) => {
+  // 18650 logic: standard range roughly 3.0V (0%) to 4.2V (100%)
+  let statusColor = 'bg-emerald-500';
+  if (soc < 20) statusColor = 'bg-red-500';
+  else if (soc < 50) statusColor = 'bg-amber-400';
 
-        .dot {
-            height: 10px;
-            width: 10px;
-            background-color: #ccc;
-            border-radius: 50%;
-            display: inline-block;
-        }
-
-        .dot.active {
-            background-color: #00ff00;
-            box-shadow: 0 0 8px #00ff00;
-        }
-
-        /* Layout */
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 0 15px;
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 25px;
-        }
-
-        /* Cards */
-        .card {
-            background: var(--card-bg);
-            border-radius: 16px;
-            padding: 25px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.05);
-            transition: transform 0.3s ease;
-            border-top: 5px solid var(--secondary-color);
-            position: relative;
-        }
-
-        .card:hover {
-            transform: translateY(-5px);
-        }
-
-        .card-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 20px;
-            border-bottom: 1px solid #eee;
-            padding-bottom: 15px;
-        }
-
-        .card-title {
-            font-size: 1.4rem;
-            font-weight: 700;
-            color: var(--secondary-color);
-        }
-
-        /* Availability Badge */
-        .status-badge {
-            font-size: 0.9rem;
-            font-weight: bold;
-            padding: 8px 16px; /* Increased padding for box look */
-            border-radius: 6px; /* Made it more boxy (was 20px) */
-            color: white;
-            background-color: var(--text-light); /* Default */
-            transition: background-color 0.3s ease;
-        }
-
-        .status-badge.available {
-            background-color: var(--available);
-            box-shadow: 0 0 8px rgba(88, 129, 87, 0.4);
-        }
-
-        .status-badge.occupied {
-            background-color: var(--occupied);
-            box-shadow: 0 0 8px rgba(214, 40, 40, 0.4);
-        }
-
-        /* Battery Visual */
-        .battery-container {
-            margin: 20px 0;
-            text-align: center;
-        }
-
-        .battery-shell {
-            width: 100%;
-            height: 40px;
-            border: 3px solid var(--text-main);
-            border-radius: 10px;
-            padding: 3px;
-            position: relative;
-            background: #f9f9f9;
-        }
-
-        .battery-shell::after {
-            content: '';
-            position: absolute;
-            right: -8px;
-            top: 10px;
-            width: 5px;
-            height: 14px;
-            background: var(--text-main);
-            border-radius: 0 3px 3px 0;
-        }
-
-        .battery-level {
-            height: 100%;
-            width: 0%;
-            background: var(--success);
-            border-radius: 5px;
-            transition: width 0.5s ease, background-color 0.5s ease;
-        }
-
-        .soc-text {
-            margin-top: 8px;
-            font-size: 1.2rem;
-            font-weight: bold;
-        }
-
-        /* Data Grid */
-        .data-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 15px;
-        }
-
-        .data-item {
-            background: #f8f9fa;
-            padding: 10px;
-            border-radius: 8px;
-            text-align: center;
-        }
-
-        .data-label {
-            font-size: 0.85rem;
-            color: var(--text-light);
-            margin-bottom: 5px;
-            display: block;
-        }
-
-        .data-value {
-            font-size: 1.1rem;
-            font-weight: 600;
-            color: var(--text-main);
-        }
-
-        .unit {
-            font-size: 0.8rem;
-            color: var(--text-light);
-        }
-
-        /* Environment Section */
-        .env-section {
-            margin-top: 20px;
-            display: flex;
-            justify-content: space-around;
-            background: #e0fbfc;
-            padding: 10px;
-            border-radius: 10px;
-        }
-
-        .env-item {
-            text-align: center;
-            color: var(--secondary-color);
-        }
-
-        /* Session/Info Card */
-        .info-card {
-            border-top-color: var(--primary-color);
-            text-align: center;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-        }
-
-        .session-count {
-            font-size: 4rem;
-            font-weight: 800;
-            color: var(--secondary-color);
-            line-height: 1;
-            margin: 20px 0;
-        }
-
-        /* Logs */
-        .log-card {
-            grid-column: 1 / -1;
-            border-top-color: var(--warning);
-            max-height: 400px;
-            overflow: hidden;
-            display: flex;
-            flex-direction: column;
-        }
-
-        .log-container {
-            overflow-y: auto;
-            flex-grow: 1;
-            padding-right: 5px;
-        }
-
-        .log-entry {
-            display: flex;
-            justify-content: space-between;
-            background: #fff;
-            border-left: 4px solid var(--primary-color);
-            padding: 12px;
-            margin-bottom: 8px;
-            border-radius: 4px;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
-            animation: slideIn 0.3s ease-out;
-        }
-
-        .log-time {
-            font-size: 0.8rem;
-            color: #999;
-        }
-
-        @keyframes slideIn {
-            from { opacity: 0; transform: translateX(-10px); }
-            to { opacity: 1; transform: translateX(0); }
-        }
-
-        /* Mobile Fix */
-        @media (max-width: 600px) {
-            .data-grid {
-                grid-template-columns: 1fr;
-            }
-            
-            /* Updates to handle longer text on mobile */
-            .card-header {
-                flex-direction: column;
-                align-items: flex-start;
-                gap: 12px;
-            }
-            
-            .status-badge {
-                width: 100%;
-                text-align: center;
-            }
-        }
-    </style>
-</head>
-<body>
-
-    <header>
-        <h1><i class="fas fa-charging-station"></i> EV Smart Station</h1>
-        <p>Live Monitoring Dashboard</p>
-        <div class="status-indicator">
-            <span class="dot" id="connectionDot"></span>
-            <span id="connectionText">Disconnected</span>
+  return (
+    <div className="relative w-full flex flex-col items-center justify-center py-4">
+      {/* Battery Body */}
+      <div className="relative w-24 h-40 border-4 border-slate-700 rounded-xl bg-slate-200 overflow-hidden shadow-inner">
+        {/* Liquid Level */}
+        <div 
+          className={`absolute bottom-0 left-0 right-0 ${statusColor} transition-all duration-1000 ease-out flex items-center justify-center`}
+          style={{ height: `${soc}%` }}
+        >
+          {isCharging && (
+            <div className="animate-pulse text-white opacity-50">
+              <Zap size={32} fill="currentColor" />
+            </div>
+          )}
         </div>
-    </header>
-
-    <main class="container">
         
-        <!-- Slot 1 -->
-        <div class="card">
-            <div class="card-header">
-                <div class="card-title">Charging Slot 1</div>
-                <div id="status-badge-1" class="status-badge">Unknown</div>
+        {/* Percentage Text Overlay */}
+        <div className="absolute inset-0 flex flex-col items-center justify-center z-10 mix-blend-multiply">
+          <span className="text-3xl font-black text-slate-800">{soc}%</span>
+        </div>
+      </div>
+      {/* Battery Terminal */}
+      <div className="w-10 h-2 bg-slate-700 rounded-t-md -mt-42 mb-1"></div>
+      
+      <div className="mt-3 text-center">
+        <span className="px-2 py-1 bg-slate-100 rounded text-xs font-mono text-slate-600 border border-slate-200">
+          {voltage} V
+        </span>
+      </div>
+    </div>
+  );
+};
+
+const SlotCard = ({ slotId, data }) => {
+  const isAvailable = data?.IsAvailable === true;
+  const isOccupied = !isAvailable;
+  
+  return (
+    <div className="bg-white rounded-2xl shadow-xl overflow-hidden border-t-4 border-blue-500 transition-all hover:shadow-2xl">
+      {/* Header */}
+      <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+        <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+          <div className="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center text-blue-600 font-black">
+            {slotId.replace('Slot', '')}
+          </div>
+          Charging Station
+        </h2>
+        <div className={`px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1 uppercase tracking-wide ${
+          isAvailable ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'
+        }`}>
+          {isAvailable ? <CheckCircle size={14} /> : <Car size={14} />}
+          {isAvailable ? 'Available' : 'Occupied'}
+        </div>
+      </div>
+
+      <div className="p-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Left: Battery Graphic */}
+          <div className="flex flex-col items-center justify-center bg-slate-50 rounded-xl p-2 border border-slate-100">
+            <BatteryVisual 
+              soc={data?.SoC || 0} 
+              voltage={data?.Voltage || 0}
+              isCharging={isOccupied && (data?.Current > 0.1)}
+            />
+            <p className="text-xs text-slate-400 mt-2 text-center">
+              18650 Lithium Cell
+            </p>
+          </div>
+
+          {/* Right: Metrics Grid */}
+          <div className="grid grid-cols-1 gap-3">
+            <MetricCard 
+              icon={Zap} 
+              label="Power Output" 
+              value={data?.Power || 0} 
+              unit="W" 
+              colorClass="bg-amber-500 text-amber-600"
+            />
+            <MetricCard 
+              icon={Activity} 
+              label="Current Draw" 
+              value={data?.Current || 0} 
+              unit="A" 
+              colorClass="bg-violet-500 text-violet-600"
+            />
+            <div className="grid grid-cols-2 gap-2 mt-2">
+               <div className="bg-blue-50 rounded-lg p-2 text-center">
+                  <Thermometer size={16} className="mx-auto text-blue-400 mb-1" />
+                  <span className="text-sm font-bold text-slate-700">{data?.Temperature || '--'}°C</span>
+               </div>
+               <div className="bg-cyan-50 rounded-lg p-2 text-center">
+                  <Droplets size={16} className="mx-auto text-cyan-400 mb-1" />
+                  <span className="text-sm font-bold text-slate-700">{data?.Humidity || '--'}%</span>
+               </div>
             </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const SessionCounter = ({ count }) => (
+  <div className="bg-gradient-to-br from-blue-600 to-indigo-700 rounded-2xl shadow-lg p-6 text-white relative overflow-hidden">
+    <div className="absolute top-0 right-0 opacity-10 transform translate-x-4 -translate-y-4">
+      <Users size={100} />
+    </div>
+    <div className="relative z-10">
+      <h3 className="text-blue-100 font-medium mb-2 flex items-center gap-2">
+        <Users size={18} /> Active Sessions
+      </h3>
+      <div className="flex items-baseline gap-2">
+        <span className="text-5xl font-bold">{count}</span>
+        <span className="text-blue-200 text-sm">Users Authorized</span>
+      </div>
+      <div className="mt-4 h-1 w-full bg-blue-900/30 rounded-full overflow-hidden">
+        <div className="h-full bg-blue-400 animate-pulse w-2/3"></div>
+      </div>
+    </div>
+  </div>
+);
+
+const RFIDLog = ({ logs }) => (
+  <div className="bg-white rounded-2xl shadow-lg border border-slate-100 overflow-hidden flex flex-col h-full">
+    <div className="p-4 border-b border-slate-100 bg-slate-50/50 flex justify-between items-center">
+      <h3 className="font-bold text-slate-700 flex items-center gap-2">
+        <History size={18} className="text-slate-400" /> Access Log
+      </h3>
+      <span className="text-xs bg-slate-200 text-slate-600 px-2 py-1 rounded-full">{logs.length} Events</span>
+    </div>
+    <div className="overflow-y-auto p-0 max-h-[240px] scrollbar-thin scrollbar-thumb-slate-200">
+      {logs.length === 0 ? (
+        <div className="p-8 text-center text-slate-400 text-sm italic">
+          Waiting for RFID scans...
+        </div>
+      ) : (
+        logs.map((log, index) => (
+          <div key={index} className="flex items-center p-3 border-b border-slate-50 hover:bg-slate-50 transition-colors">
+             <div className="w-8 h-8 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center text-xs font-bold mr-3">
+               ID
+             </div>
+             <div className="flex-1">
+               <p className="font-mono text-sm font-semibold text-slate-700">{log.uid}</p>
+               <p className="text-xs text-slate-400">{log.time}</p>
+             </div>
+             <div className="text-xs font-medium text-emerald-600 bg-emerald-50 px-2 py-1 rounded">
+               Authorized
+             </div>
+          </div>
+        ))
+      )}
+    </div>
+  </div>
+);
+
+// --- MAIN APP ---
+
+export default function App() {
+  const [slot1, setSlot1] = useState(null);
+  const [slot2, setSlot2] = useState(null);
+  const [sessions, setSessions] = useState(0);
+  const [connected, setConnected] = useState(false);
+  const [rfidLogs, setRfidLogs] = useState([]);
+  const lastUidRef = useRef("");
+
+  useEffect(() => {
+    // 1. Monitor Connection State
+    const connectedRef = ref(db, ".info/connected");
+    const unsubConnected = onValue(connectedRef, (snap) => {
+      setConnected(!!snap.val());
+    });
+
+    // 2. Monitor Slot 1
+    const slot1Ref = ref(db, '/EV/Slot1');
+    const unsubSlot1 = onValue(slot1Ref, (snap) => setSlot1(snap.val()));
+
+    // 3. Monitor Slot 2
+    const slot2Ref = ref(db, '/EV/Slot2');
+    const unsubSlot2 = onValue(slot2Ref, (snap) => setSlot2(snap.val()));
+
+    // 4. Monitor Sessions
+    const sessionRef = ref(db, '/EV/ActiveSessions');
+    const unsubSession = onValue(sessionRef, (snap) => setSessions(snap.val() || 0));
+
+    // 5. Monitor RFID (And build local history)
+    const rfidRef = ref(db, '/EV/RFID/UID');
+    const unsubRfid = onValue(rfidRef, (snap) => {
+      const uid = snap.val();
+      if (uid && uid !== lastUidRef.current) {
+        lastUidRef.current = uid;
+        const newLog = {
+          uid: uid,
+          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+        };
+        setRfidLogs(prev => [newLog, ...prev].slice(0, 20)); // Keep last 20
+      }
+    });
+
+    return () => {
+      unsubConnected();
+      unsubSlot1();
+      unsubSlot2();
+      unsubSession();
+      unsubRfid();
+    };
+  }, []);
+
+  return (
+    <div className="min-h-screen bg-slate-100 text-slate-800 font-sans pb-10">
+      {/* Navbar */}
+      <nav className="bg-slate-900 text-white shadow-xl sticky top-0 z-50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="bg-gradient-to-r from-blue-500 to-cyan-400 p-2 rounded-lg">
+              <BatteryCharging size={24} className="text-white" />
+            </div>
+            <div>
+              <h1 className="text-lg font-bold tracking-tight">EV Smart Station</h1>
+              <p className="text-xs text-slate-400">Real-time 18650 Monitoring System</p>
+            </div>
+          </div>
+          <div className={`flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold border ${
+            connected ? 'bg-emerald-500/20 border-emerald-500/50 text-emerald-400' : 'bg-rose-500/20 border-rose-500/50 text-rose-400'
+          }`}>
+            {connected ? <Wifi size={14} /> : <WifiOff size={14} />}
+            {connected ? 'ONLINE' : 'OFFLINE'}
+          </div>
+        </div>
+      </nav>
+
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-8">
+        {/* Status Overview */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+          <div className="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6">
+             {/* Slot 1 */}
+             <SlotCard slotId="Slot1" data={slot1} />
+             {/* Slot 2 */}
+             <SlotCard slotId="Slot2" data={slot2} />
+          </div>
+          
+          <div className="flex flex-col gap-6">
+            {/* Session Counter */}
+            <SessionCounter count={sessions} />
             
-            <div class="battery-container">
-                <div class="battery-shell">
-                    <div id="bat-bar-1" class="battery-level"></div>
-                </div>
-                <div class="soc-text"><span id="soc1">0</span>% Charged</div>
+            {/* RFID Logs */}
+            <div className="flex-1 min-h-[300px]">
+              <RFIDLog logs={rfidLogs} />
             </div>
-
-            <div class="data-grid">
-                <div class="data-item">
-                    <span class="data-label"><i class="fas fa-bolt"></i> Voltage</span>
-                    <span class="data-value" id="voltage1">--</span> <span class="unit">V</span>
-                </div>
-                <div class="data-item">
-                    <span class="data-label"><i class="fas fa-wave-square"></i> Current</span>
-                    <span class="data-value" id="current1">--</span> <span class="unit">A</span>
-                </div>
-                <div class="data-item" style="grid-column: 1 / -1;">
-                    <span class="data-label"><i class="fas fa-tachometer-alt"></i> Power</span>
-                    <span class="data-value" id="power1">--</span> <span class="unit">W</span>
-                </div>
-            </div>
-
-            <div class="env-section">
-                <div class="env-item">
-                    <i class="fas fa-thermometer-half"></i> <span id="temp1">--</span>°C
-                </div>
-                <div class="env-item">
-                    <i class="fas fa-tint"></i> <span id="hum1">--</span>%
-                </div>
-            </div>
+          </div>
         </div>
 
-        <!-- Slot 2 -->
-        <div class="card">
-            <div class="card-header">
-                <div class="card-title">Charging Slot 2</div>
-                <div id="status-badge-2" class="status-badge">Unknown</div>
-            </div>
-            
-            <div class="battery-container">
-                <div class="battery-shell">
-                    <div id="bat-bar-2" class="battery-level"></div>
-                </div>
-                <div class="soc-text"><span id="soc2">0</span>% Charged</div>
-            </div>
-
-            <div class="data-grid">
-                <div class="data-item">
-                    <span class="data-label"><i class="fas fa-bolt"></i> Voltage</span>
-                    <span class="data-value" id="voltage2">--</span> <span class="unit">V</span>
-                </div>
-                <div class="data-item">
-                    <span class="data-label"><i class="fas fa-wave-square"></i> Current</span>
-                    <span class="data-value" id="current2">--</span> <span class="unit">A</span>
-                </div>
-                <div class="data-item" style="grid-column: 1 / -1;">
-                    <span class="data-label"><i class="fas fa-tachometer-alt"></i> Power</span>
-                    <span class="data-value" id="power2">--</span> <span class="unit">W</span>
-                </div>
-            </div>
-
-            <div class="env-section">
-                <div class="env-item">
-                    <i class="fas fa-thermometer-half"></i> <span id="temp2">--</span>°C
-                </div>
-                <div class="env-item">
-                    <i class="fas fa-tint"></i> <span id="hum2">--</span>%
-                </div>
-            </div>
+        {/* Footer Info */}
+        <div className="text-center text-slate-400 text-sm mt-12">
+           <p>© 2024 EV Smart Station System • Powered by ESP32 & Firebase</p>
         </div>
-
-        <!-- Sessions/Info Card (Replaced Queue) -->
-        <div class="card info-card">
-            <div class="card-header" style="border-bottom: none; margin-bottom: 0; width: 100%;">
-                <div class="card-title" style="width: 100%; text-align: center; color: var(--primary-color);">Active Sessions</div>
-            </div>
-            <div class="session-count" id="sessionCount">0</div>
-            <p style="color: #666;">Authorized RFID Users</p>
-        </div>
-
-        <!-- RFID Log -->
-        <div class="card log-card">
-            <div class="card-header">
-                <div class="card-title">RFID Access Log</div>
-                <i class="fas fa-id-card card-icon"></i>
-            </div>
-            <div class="log-container" id="rfidContainer">
-                <div style="text-align: center; color: #999; padding: 20px;">Waiting for scans...</div>
-            </div>
-        </div>
-
-    </main>
-
-    <script type="module">
-        // Import Firebase Modules
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.8.1/firebase-app.js";
-        import { getDatabase, ref, onValue, onDisconnect } from "https://www.gstatic.com/firebasejs/11.8.1/firebase-database.js";
-
-        // Your Provided Configuration
-        const firebaseConfig = {
-            apiKey: "AIzaSyDDWy_6FbRAfr7DdHNUeWXfL7iYkL1-Xa0",
-            authDomain: "ev-station-b57b1.firebaseapp.com",
-            projectId: "ev-station-b57b1",
-            storageBucket: "ev-station-b57b1.firebasestorage.app",
-            messagingSenderId: "601772739558",
-            appId: "1:601772739558:web:d7439ed8bd24479df76427",
-            measurementId: "G-THKSGK2H9Z"
-        };
-
-        // Initialize Firebase
-        const app = initializeApp(firebaseConfig);
-        const database = getDatabase(app);
-
-        // Connection Status Logic
-        const connectedRef = ref(database, ".info/connected");
-        onValue(connectedRef, (snap) => {
-            const dot = document.getElementById("connectionDot");
-            const text = document.getElementById("connectionText");
-            if (snap.val() === true) {
-                dot.classList.add("active");
-                text.textContent = "Live";
-            } else {
-                dot.classList.remove("active");
-                text.textContent = "Disconnected";
-            }
-        });
-
-        // Helper to update text content safely
-        const setVal = (id, val, fixed = 2) => {
-            const el = document.getElementById(id);
-            if (el) {
-                el.textContent = val !== undefined && val !== null ? parseFloat(val).toFixed(fixed) : '--';
-            }
-        };
-
-        // Helper to update Slot Availability Status (IR Sensor Data)
-        const updateSlotStatus = (slotNum, isAvailable) => {
-            const badge = document.getElementById(`status-badge-${slotNum}`);
-            if(!badge) return;
-
-            // isAvailable comes from Arduino as a boolean (true = available/high, false = occupied/low)
-            if(isAvailable === true) {
-                badge.className = "status-badge available";
-                badge.innerHTML = '<i class="fas fa-check-circle"></i> Slot Available for Charging';
-            } else {
-                badge.className = "status-badge occupied";
-                badge.innerHTML = '<i class="fas fa-ban"></i> Car Charging - Slot Not Available';
-            }
-        };
-
-        // Helper to update Battery UI
-        const updateBattery = (slotNum, soc) => {
-            const bar = document.getElementById(`bat-bar-${slotNum}`);
-            const text = document.getElementById(`soc${slotNum}`);
-            
-            if(!bar || !text) return;
-
-            let percentage = soc !== undefined ? parseInt(soc) : 0;
-            if (percentage > 100) percentage = 100;
-            if (percentage < 0) percentage = 0;
-
-            text.textContent = percentage;
-            bar.style.width = `${percentage}%`;
-
-            if (percentage < 20) {
-                bar.style.backgroundColor = "#e76f51"; // Red
-            } else if (percentage < 50) {
-                bar.style.backgroundColor = "#e9c46a"; // Yellow
-            } else {
-                bar.style.backgroundColor = "#2a9d8f"; // Green
-            }
-        };
-
-        // ---- Data Listeners ----
-
-        // Slot 1 Data (Includes Power, Env, AND Status)
-        onValue(ref(database, '/EV/Slot1'), (snapshot) => {
-            const data = snapshot.val();
-            if (data) {
-                setVal('voltage1', data.Voltage);
-                setVal('current1', data.Current);
-                setVal('power1', data.Power);
-                setVal('temp1', data.Temperature, 1);
-                setVal('hum1', data.Humidity, 1);
-                updateBattery(1, data.SoC);
-                
-                // Update Availability Badge
-                if (data.IsAvailable !== undefined) {
-                    updateSlotStatus(1, data.IsAvailable);
-                }
-            }
-        });
-
-        // Slot 2 Data
-        onValue(ref(database, '/EV/Slot2'), (snapshot) => {
-            const data = snapshot.val();
-            if (data) {
-                setVal('voltage2', data.Voltage);
-                setVal('current2', data.Current);
-                setVal('power2', data.Power);
-                setVal('temp2', data.Temperature, 1);
-                setVal('hum2', data.Humidity, 1);
-                updateBattery(2, data.SoC);
-
-                // Update Availability Badge
-                if (data.IsAvailable !== undefined) {
-                    updateSlotStatus(2, data.IsAvailable);
-                }
-            }
-        });
-
-        // Active Sessions (Replaced Queue)
-        onValue(ref(database, '/EV/ActiveSessions'), (snapshot) => {
-            const count = snapshot.val();
-            const el = document.getElementById('sessionCount');
-            el.textContent = count !== null ? count : 0;
-            // Simple animation effect
-            el.style.transform = "scale(1.1)";
-            setTimeout(() => el.style.transform = "scale(1)", 200);
-        });
-
-        // RFID Logic
-        let lastKnownUID = "";
-        const rfidContainer = document.getElementById('rfidContainer');
-
-        onValue(ref(database, '/EV/RFID/UID'), (snapshot) => {
-            const uid = snapshot.val();
-            if (!uid) return; 
-            
-            if (uid !== lastKnownUID) {
-                logRFID(uid);
-                lastKnownUID = uid;
-            }
-        });
-
-        function logRFID(uid) {
-            if (rfidContainer.innerText.includes("Waiting")) {
-                rfidContainer.innerHTML = "";
-            }
-
-            const now = new Date();
-            const timeString = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-
-            const entry = document.createElement('div');
-            entry.className = "log-entry";
-            entry.innerHTML = `
-                <div>
-                    <strong><i class="fas fa-user-tag"></i> RFID Scan</strong><br>
-                    <span style="font-family: monospace; background: #eee; padding: 2px 5px; border-radius: 4px;">${uid}</span>
-                </div>
-                <div class="log-time">${timeString}</div>
-            `;
-            
-            rfidContainer.prepend(entry);
-
-            if (rfidContainer.children.length > 20) {
-                rfidContainer.removeChild(rfidContainer.lastChild);
-            }
-        }
-
-    </script>
-</body>
-</html>
+      </main>
+    </div>
+  );
+}
