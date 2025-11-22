@@ -30,6 +30,14 @@
         .mix-blend-multiply {
             mix-blend-mode: multiply;
         }
+        
+        @keyframes pulse-slow {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        .animate-pulse-slow {
+            animation: pulse-slow 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
     </style>
 </head>
 <body class="bg-slate-100 text-slate-800 font-sans pb-10 min-h-screen">
@@ -286,10 +294,11 @@
         // Initial Icon Render
         lucide.createIcons();
 
-        // State for RFID Logic
+        // State
         let lastUid = "";
         let logCount = 0;
         const MAX_LOGS = 20;
+        const VOLTAGE_THRESHOLD = 0.5; 
 
         // --- UI UPDATERS ---
 
@@ -317,40 +326,82 @@
         const updateSlot = (idPrefix, data) => {
             if(!data) return;
 
-            // Values
-            document.getElementById(`${idPrefix}-volts`).textContent = data.Voltage || 0;
-            document.getElementById(`${idPrefix}-current`).textContent = data.Current || 0;
-            document.getElementById(`${idPrefix}-power`).textContent = data.Power || 0;
-            document.getElementById(`${idPrefix}-soc`).textContent = data.SoC || 0;
-            document.getElementById(`${idPrefix}-temp`).textContent = data.Temperature || '--';
-            document.getElementById(`${idPrefix}-hum`).textContent = data.Humidity || '--';
+            // --- SMART HARDWARE ERROR FILTERING ---
+            let rawVolts = parseFloat(data.Voltage || 0);
+            let rawAmps = parseFloat(data.Current || 0);
+            let rawPower = parseFloat(data.Power || 0);
+            let rawSoC = parseInt(data.SoC || 0);
+            let rawTemp = data.Temperature;
+            let rawHum = data.Humidity;
 
-            // Status Badge
+            // Error 1: Floating Current Sensor (Negative Values)
+            // If Amps are below -1.0, it means the sensor pin is likely reading 0V (disconnected), so we force 0.
+            if (rawAmps < -1.0) {
+                rawAmps = 0;
+                rawPower = 0; // Recalculate power to 0 if amps are fake
+            }
+
+            // Error 2: Low Voltage Noise
+            if (rawVolts < VOLTAGE_THRESHOLD) {
+                rawVolts = 0;
+                rawAmps = 0;
+                rawPower = 0;
+                rawSoC = 0;
+            }
+            
+            // Force Positive 0.00 display
+            if (rawAmps < 0) rawAmps = 0;
+            if (rawPower < 0) rawPower = 0;
+
+            // Update Text Values
+            document.getElementById(`${idPrefix}-volts`).textContent = rawVolts.toFixed(2);
+            document.getElementById(`${idPrefix}-current`).textContent = rawAmps.toFixed(2);
+            document.getElementById(`${idPrefix}-power`).textContent = rawPower.toFixed(2);
+            document.getElementById(`${idPrefix}-soc`).textContent = rawSoC;
+            document.getElementById(`${idPrefix}-temp`).textContent = rawTemp || '--';
+            document.getElementById(`${idPrefix}-hum`).textContent = rawHum || '--';
+
+            // Update Status Badge
+            // Logic: "Occupied" only if IR sensor says so AND we have valid (non-error) readings
             const isAvailable = data.IsAvailable === true;
             const badge = document.getElementById(`${idPrefix}-status-badge`);
+            
             if (isAvailable) {
                 badge.className = "px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1 uppercase tracking-wide bg-emerald-100 text-emerald-700";
                 badge.innerHTML = `<i data-lucide="check-circle" class="w-3.5 h-3.5"></i> <span>Available</span>`;
             } else {
-                badge.className = "px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1 uppercase tracking-wide bg-rose-100 text-rose-700";
-                badge.innerHTML = `<i data-lucide="car" class="w-3.5 h-3.5"></i> <span>Occupied</span>`;
+                if (rawVolts === 0 && rawAmps === 0) {
+                     // IR blocked but no power -> Parked but not charging
+                     badge.className = "px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1 uppercase tracking-wide bg-amber-100 text-amber-700";
+                     badge.innerHTML = `<i data-lucide="alert-circle" class="w-3.5 h-3.5"></i> <span>Parked</span>`;
+                } else {
+                     // Charging
+                     badge.className = "px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1 uppercase tracking-wide bg-rose-100 text-rose-700";
+                     badge.innerHTML = `<i data-lucide="car" class="w-3.5 h-3.5"></i> <span>Occupied</span>`;
+                }
             }
 
             // Battery Visual
-            const soc = data.SoC || 0;
             const fill = document.getElementById(`${idPrefix}-bat-fill`);
             const chargeIcon = document.getElementById(`${idPrefix}-charge-icon`);
             
-            fill.style.height = `${soc}%`;
+            fill.style.height = `${rawSoC}%`;
 
-            // Color Logic (18650)
-            fill.classList.remove('bg-emerald-500', 'bg-amber-400', 'bg-red-500');
-            if(soc < 20) fill.classList.add('bg-red-500');
-            else if(soc < 50) fill.classList.add('bg-amber-400');
-            else fill.classList.add('bg-emerald-500');
+            // Color Logic
+            fill.classList.remove('bg-emerald-500', 'bg-amber-400', 'bg-red-500', 'bg-slate-400');
+            
+            if (rawVolts === 0) {
+                 fill.classList.add('bg-slate-400');
+            } else if(rawSoC < 20) {
+                fill.classList.add('bg-red-500');
+            } else if(rawSoC < 50) {
+                fill.classList.add('bg-amber-400');
+            } else {
+                fill.classList.add('bg-emerald-500');
+            }
 
-            // Charging Animation
-            const isCharging = !isAvailable && (parseFloat(data.Current) > 0.1);
+            // Charging Animation (Only if > 0.1A positive current)
+            const isCharging = !isAvailable && (rawAmps > 0.1);
             if(isCharging) {
                 chargeIcon.classList.remove('hidden');
             } else {
@@ -377,12 +428,10 @@
                 lastUid = uid;
                 logCount++;
                 
-                // Remove "Waiting" text if first log
                 if(rfidContainer.innerText.includes("Waiting")) {
                     rfidContainer.innerHTML = '';
                 }
 
-                // Create Log Element
                 const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
                 const logEntry = document.createElement('div');
                 logEntry.className = "flex items-center p-3 border-b border-slate-50 hover:bg-slate-50 transition-colors animate-fade-in-down";
@@ -395,15 +444,12 @@
                     <div class="text-xs font-medium text-emerald-600 bg-emerald-50 px-2 py-1 rounded">Authorized</div>
                 `;
 
-                // Prepend
                 rfidContainer.insertBefore(logEntry, rfidContainer.firstChild);
                 
-                // Limit logs
                 if(rfidContainer.children.length > MAX_LOGS) {
                     rfidContainer.removeChild(rfidContainer.lastChild);
                 }
 
-                // Update Count Badge
                 document.getElementById('log-count').textContent = `${Math.min(logCount, MAX_LOGS)}${logCount > MAX_LOGS ? '+' : ''} Events`;
             }
         });
