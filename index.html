@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ElectroGrid | Smart EV Station</title>
+    <title>EV Smart Station Dashboard</title>
     
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -11,964 +11,449 @@
     <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
 
-    <!-- Chart.js for Admin Graphs -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
-    <!-- Google Fonts -->
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
-
+    <!-- Custom Styles for Scrollbar -->
     <style>
-        body { font-family: 'Inter', sans-serif; }
-        h1, h2, h3, h4, .brand-font { font-family: 'Space Grotesk', sans-serif; }
+        /* Webkit Scrollbar customization to match the design */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f5f9; 
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1; 
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8; 
+        }
+        .mix-blend-multiply {
+            mix-blend-mode: multiply;
+        }
         
-        /* Glassmorphism Utilities */
-        .glass {
-            background: rgba(255, 255, 255, 0.7);
-            backdrop-filter: blur(10px);
-            -webkit-backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.3);
+        @keyframes pulse-slow {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
         }
-        .glass-dark {
-            background: rgba(15, 23, 42, 0.7);
-            backdrop-filter: blur(12px);
-            -webkit-backdrop-filter: blur(12px);
-            border: 1px solid rgba(255, 255, 255, 0.05);
+        .animate-pulse-slow {
+            animation: pulse-slow 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
         }
-
-        /* Animations */
-        @keyframes flow {
-            0% { background-position: 0% 50%; }
-            50% { background-position: 100% 50%; }
-            100% { background-position: 0% 50%; }
-        }
-        .animate-gradient {
-            background-size: 200% 200%;
-            animation: flow 3s ease infinite;
-        }
-        .charge-pulse {
-            animation: pulse-glow 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-        }
-        @keyframes pulse-glow {
-            0%, 100% { opacity: 1; box-shadow: 0 0 0px #10b981; }
-            50% { opacity: .8; box-shadow: 0 0 20px #10b981; }
-        }
-
-        /* Custom Scrollbar */
-        ::-webkit-scrollbar { width: 6px; }
-        ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
-        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
-
-        /* Hide/Show transitions */
-        .view-section { display: none; animation: fadeIn 0.3s ease-in-out; }
-        .view-section.active { display: block; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
     </style>
 </head>
-<body class="bg-slate-50 text-slate-800 min-h-screen selection:bg-blue-500 selection:text-white overflow-x-hidden">
+<body class="bg-slate-100 text-slate-800 font-sans pb-10 min-h-screen">
 
-    <!-- TOAST NOTIFICATION CONTAINER -->
-    <div id="toast-container" class="fixed top-5 right-5 z-[100] flex flex-col gap-2"></div>
-
-    <!-- ================= LOGIN / AUTH SCREEN ================= -->
-    <section id="auth-view" class="view-section active min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 relative overflow-hidden">
-        <!-- Decor Blobs -->
-        <div class="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none">
-            <div class="absolute top-[-10%] left-[-10%] w-96 h-96 bg-blue-500 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob"></div>
-            <div class="absolute bottom-[-10%] right-[-10%] w-96 h-96 bg-cyan-500 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob animation-delay-2000"></div>
-        </div>
-
-        <div class="w-full max-w-md p-8 glass-dark rounded-2xl shadow-2xl relative z-10 mx-4">
-            <div class="text-center mb-8">
-                <div class="inline-flex items-center justify-center w-16 h-16 rounded-xl bg-gradient-to-tr from-blue-500 to-cyan-400 mb-4 shadow-lg shadow-blue-500/30">
-                    <i data-lucide="zap" class="w-8 h-8 text-white"></i>
-                </div>
-                <h1 class="text-3xl font-bold text-white tracking-tight">ElectroGrid</h1>
-                <p class="text-slate-400 mt-2">Smart Charging Ecosystem</p>
-            </div>
-
-            <!-- Toggle Tabs -->
-            <div class="flex p-1 bg-slate-800 rounded-lg mb-6">
-                <button onclick="switchAuthTab('login')" id="tab-login" class="flex-1 py-2 text-sm font-medium rounded-md text-white bg-slate-700 shadow transition-all">Login</button>
-                <button onclick="switchAuthTab('signup')" id="tab-signup" class="flex-1 py-2 text-sm font-medium rounded-md text-slate-400 hover:text-white transition-all">Sign Up</button>
-            </div>
-
-            <!-- Login Form -->
-            <form id="login-form" class="space-y-4" onsubmit="handleLogin(event)">
-                <div>
-                    <label class="text-xs uppercase font-bold text-slate-500 tracking-wider">Email</label>
-                    <div class="relative mt-1">
-                        <i data-lucide="mail" class="absolute left-3 top-3 w-5 h-5 text-slate-500"></i>
-                        <input type="email" id="login-email" class="w-full bg-slate-800/50 border border-slate-700 rounded-lg py-2.5 pl-10 pr-4 text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all" placeholder="user@example.com" required value="admin@electro.com">
-                    </div>
+    <!-- Navbar -->
+    <nav class="bg-slate-900 text-white shadow-xl sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="bg-gradient-to-r from-blue-500 to-cyan-400 p-2 rounded-lg">
+                    <i data-lucide="battery-charging" class="text-white w-6 h-6"></i>
                 </div>
                 <div>
-                    <label class="text-xs uppercase font-bold text-slate-500 tracking-wider">Password</label>
-                    <div class="relative mt-1">
-                        <i data-lucide="lock" class="absolute left-3 top-3 w-5 h-5 text-slate-500"></i>
-                        <input type="password" id="login-password" class="w-full bg-slate-800/50 border border-slate-700 rounded-lg py-2.5 pl-10 pr-4 text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 transition-all" placeholder="••••••••" required value="admin123">
-                    </div>
-                </div>
-                <button type="submit" class="w-full py-3 rounded-lg bg-gradient-to-r from-blue-600 to-cyan-600 text-white font-bold shadow-lg shadow-blue-600/20 hover:shadow-blue-600/40 transform hover:-translate-y-0.5 transition-all duration-200">
-                    Access Portal
-                </button>
-                
-                <div class="text-center mt-4">
-                    <p class="text-xs text-slate-500">Demo Credentials:</p>
-                    <div class="flex justify-center gap-2 mt-1">
-                        <span class="text-xs bg-slate-800 px-2 py-1 rounded text-blue-400 cursor-pointer" onclick="fillCreds('admin')">Admin</span>
-                        <span class="text-xs bg-slate-800 px-2 py-1 rounded text-cyan-400 cursor-pointer" onclick="fillCreds('user')">User</span>
-                    </div>
-                </div>
-            </form>
-
-            <!-- Signup Form (Hidden) -->
-            <form id="signup-form" class="space-y-4 hidden" onsubmit="handleSignup(event)">
-                <div>
-                    <label class="text-xs uppercase font-bold text-slate-500 tracking-wider">Full Name</label>
-                    <input type="text" id="signup-name" class="w-full bg-slate-800/50 border border-slate-700 rounded-lg py-2.5 px-4 text-white focus:border-blue-500 outline-none" required>
-                </div>
-                <div>
-                    <label class="text-xs uppercase font-bold text-slate-500 tracking-wider">Email</label>
-                    <input type="email" id="signup-email" class="w-full bg-slate-800/50 border border-slate-700 rounded-lg py-2.5 px-4 text-white focus:border-blue-500 outline-none" required>
-                </div>
-                <div>
-                    <label class="text-xs uppercase font-bold text-slate-500 tracking-wider">Password</label>
-                    <input type="password" id="signup-password" class="w-full bg-slate-800/50 border border-slate-700 rounded-lg py-2.5 px-4 text-white focus:border-blue-500 outline-none" required>
-                </div>
-                <button type="submit" class="w-full py-3 rounded-lg bg-slate-700 text-white font-bold hover:bg-slate-600 transition-all">
-                    Create Account
-                </button>
-            </form>
-        </div>
-    </section>
-
-    <!-- ================= ADMIN PANEL ================= -->
-    <section id="admin-panel" class="view-section hidden bg-slate-100 min-h-screen pb-10">
-        <!-- Admin Navbar -->
-        <nav class="bg-slate-900 text-white sticky top-0 z-40 shadow-xl">
-            <div class="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
-                <div class="flex items-center gap-3">
-                    <div class="bg-blue-600 p-1.5 rounded-lg">
-                        <i data-lucide="shield-check" class="w-5 h-5"></i>
-                    </div>
-                    <span class="font-bold text-lg tracking-tight">ElectroGrid <span class="text-blue-400">Admin</span></span>
-                </div>
-                <div class="flex items-center gap-4">
-                    <div class="hidden md:flex items-center gap-2 text-sm text-slate-400 bg-slate-800 px-3 py-1.5 rounded-full border border-slate-700">
-                        <div class="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></div>
-                        System Online
-                    </div>
-                    <button onclick="handleLogout()" class="p-2 hover:bg-slate-800 rounded-full transition-colors text-slate-400 hover:text-white" title="Logout">
-                        <i data-lucide="log-out" class="w-5 h-5"></i>
-                    </button>
+                    <h1 class="text-lg font-bold tracking-tight">EV Smart Station</h1>
+                    <p class="text-xs text-slate-400">Real-time 18650 Monitoring System</p>
                 </div>
             </div>
-        </nav>
-
-        <div class="max-w-7xl mx-auto px-4 py-8 space-y-8">
-            <!-- KPI Cards -->
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 flex items-center justify-between">
-                    <div>
-                        <p class="text-xs font-bold text-slate-400 uppercase">Total Revenue</p>
-                        <h3 class="text-2xl font-bold text-slate-800 mt-1">₹<span id="admin-revenue">12,450</span></h3>
-                    </div>
-                    <div class="p-3 bg-green-100 text-green-600 rounded-xl">
-                        <i data-lucide="dollar-sign" class="w-6 h-6"></i>
-                    </div>
-                </div>
-                <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 flex items-center justify-between">
-                    <div>
-                        <p class="text-xs font-bold text-slate-400 uppercase">Total Sessions</p>
-                        <h3 class="text-2xl font-bold text-slate-800 mt-1" id="admin-sessions">843</h3>
-                    </div>
-                    <div class="p-3 bg-blue-100 text-blue-600 rounded-xl">
-                        <i data-lucide="zap" class="w-6 h-6"></i>
-                    </div>
-                </div>
-                <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 flex items-center justify-between">
-                    <div>
-                        <p class="text-xs font-bold text-slate-400 uppercase">Active Slots</p>
-                        <h3 class="text-2xl font-bold text-slate-800 mt-1"><span id="admin-active-slots">1</span>/2</h3>
-                    </div>
-                    <div class="p-3 bg-purple-100 text-purple-600 rounded-xl">
-                        <i data-lucide="activity" class="w-6 h-6"></i>
-                    </div>
-                </div>
-                <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 flex items-center justify-between">
-                    <div>
-                        <p class="text-xs font-bold text-slate-400 uppercase">System Health</p>
-                        <h3 class="text-2xl font-bold text-emerald-600 mt-1">98%</h3>
-                    </div>
-                    <div class="p-3 bg-emerald-100 text-emerald-600 rounded-xl">
-                        <i data-lucide="server" class="w-6 h-6"></i>
-                    </div>
-                </div>
-            </div>
-
-            <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                <!-- Live Monitoring (2/3 Width) -->
-                <div class="lg:col-span-2 space-y-6">
-                    <div class="flex items-center justify-between">
-                        <h2 class="text-xl font-bold text-slate-800">Live Station Monitoring</h2>
-                        <span class="text-xs bg-red-100 text-red-600 px-2 py-1 rounded font-bold animate-pulse">LIVE FEED</span>
-                    </div>
-                    
-                    <!-- Slot 1 -->
-                    <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden" id="admin-slot-1">
-                        <div class="bg-slate-50 p-4 border-b border-slate-100 flex justify-between items-center">
-                            <div class="flex items-center gap-3">
-                                <div class="w-8 h-8 bg-blue-600 text-white rounded-lg flex items-center justify-center font-bold">1</div>
-                                <div>
-                                    <span class="font-semibold text-slate-700 block leading-tight">Station Alpha</span>
-                                    <span class="text-[10px] text-slate-400 uppercase font-bold tracking-wider">18650 Li-ion Array</span>
-                                </div>
-                            </div>
-                            <div id="badge-s1" class="px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-700 flex items-center gap-1">
-                                <i data-lucide="check-circle" class="w-3 h-3"></i> AVAILABLE
-                            </div>
-                        </div>
-                        <div class="p-6 grid grid-cols-2 md:grid-cols-4 gap-4">
-                            <div class="text-center p-3 bg-slate-50 rounded-xl">
-                                <p class="text-xs text-slate-400 uppercase font-bold">Voltage</p>
-                                <p class="text-lg font-bold text-slate-800"><span id="val-v-s1">230.0</span> V</p>
-                            </div>
-                            <div class="text-center p-3 bg-slate-50 rounded-xl">
-                                <p class="text-xs text-slate-400 uppercase font-bold">Current</p>
-                                <p class="text-lg font-bold text-slate-800"><span id="val-a-s1">0.0</span> A</p>
-                            </div>
-                            <div class="text-center p-3 bg-slate-50 rounded-xl">
-                                <p class="text-xs text-slate-400 uppercase font-bold">Power</p>
-                                <p class="text-lg font-bold text-slate-800"><span id="val-w-s1">0</span> W</p>
-                            </div>
-                            <div class="text-center p-3 bg-slate-50 rounded-xl">
-                                <p class="text-xs text-slate-400 uppercase font-bold">Temp</p>
-                                <p class="text-lg font-bold text-slate-800"><span id="val-t-s1">32</span>°C</p>
-                            </div>
-                        </div>
-                        <!-- Progress Bar for SoC -->
-                        <div class="px-6 pb-6">
-                            <div class="flex justify-between text-xs mb-1">
-                                <span class="font-bold text-slate-500">Battery SoC</span>
-                                <span class="font-bold text-slate-800"><span id="val-soc-s1">0</span>%</span>
-                            </div>
-                            <div class="h-3 w-full bg-slate-200 rounded-full overflow-hidden">
-                                <div id="bar-soc-s1" class="h-full bg-emerald-500 w-0 transition-all duration-500"></div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Slot 2 -->
-                    <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden" id="admin-slot-2">
-                         <div class="bg-slate-50 p-4 border-b border-slate-100 flex justify-between items-center">
-                            <div class="flex items-center gap-3">
-                                <div class="w-8 h-8 bg-indigo-600 text-white rounded-lg flex items-center justify-center font-bold">2</div>
-                                <div>
-                                    <span class="font-semibold text-slate-700 block leading-tight">Station Beta</span>
-                                    <span class="text-[10px] text-slate-400 uppercase font-bold tracking-wider">18650 Li-ion Array</span>
-                                </div>
-                            </div>
-                            <div id="badge-s2" class="px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-700 flex items-center gap-1">
-                                <i data-lucide="check-circle" class="w-3 h-3"></i> AVAILABLE
-                            </div>
-                        </div>
-                        <div class="p-6 grid grid-cols-2 md:grid-cols-4 gap-4">
-                            <div class="text-center p-3 bg-slate-50 rounded-xl">
-                                <p class="text-xs text-slate-400 uppercase font-bold">Voltage</p>
-                                <p class="text-lg font-bold text-slate-800"><span id="val-v-s2">230.0</span> V</p>
-                            </div>
-                            <div class="text-center p-3 bg-slate-50 rounded-xl">
-                                <p class="text-xs text-slate-400 uppercase font-bold">Current</p>
-                                <p class="text-lg font-bold text-slate-800"><span id="val-a-s2">0.0</span> A</p>
-                            </div>
-                            <div class="text-center p-3 bg-slate-50 rounded-xl">
-                                <p class="text-xs text-slate-400 uppercase font-bold">Power</p>
-                                <p class="text-lg font-bold text-slate-800"><span id="val-w-s2">0</span> W</p>
-                            </div>
-                            <div class="text-center p-3 bg-slate-50 rounded-xl">
-                                <p class="text-xs text-slate-400 uppercase font-bold">Temp</p>
-                                <p class="text-lg font-bold text-slate-800"><span id="val-t-s2">30</span>°C</p>
-                            </div>
-                        </div>
-                         <div class="px-6 pb-6">
-                            <div class="flex justify-between text-xs mb-1">
-                                <span class="font-bold text-slate-500">Battery SoC</span>
-                                <span class="font-bold text-slate-800"><span id="val-soc-s2">0</span>%</span>
-                            </div>
-                            <div class="h-3 w-full bg-slate-200 rounded-full overflow-hidden">
-                                <div id="bar-soc-s2" class="h-full bg-emerald-500 w-0 transition-all duration-500"></div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Revenue Chart -->
-                     <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
-                        <h3 class="font-bold text-slate-800 mb-4">Monthly Revenue Analytics</h3>
-                        <canvas id="revenueChart" height="100"></canvas>
-                    </div>
-                </div>
-
-                <!-- Right Column: Logs & Management -->
-                <div class="space-y-6">
-                    <!-- RFID Logs -->
-                    <div class="bg-white rounded-2xl shadow-sm border border-slate-200 flex flex-col h-[400px]">
-                        <div class="p-4 border-b border-slate-100 flex justify-between items-center">
-                            <h3 class="font-bold text-slate-800 flex items-center gap-2">
-                                <i data-lucide="scan" class="w-4 h-4"></i> RFID Access Log
-                            </h3>
-                            <button onclick="addMockRFIDLog()" class="text-xs text-blue-600 hover:underline">Simulate Scan</button>
-                        </div>
-                        <div class="flex-1 overflow-y-auto p-2 space-y-2" id="rfid-logs-container">
-                            <!-- Logs injected by JS -->
-                            <div class="text-center text-slate-400 text-sm py-10 italic">No recent scans</div>
-                        </div>
-                    </div>
-
-                    <!-- Quick Actions -->
-                    <div class="bg-gradient-to-br from-slate-800 to-slate-900 rounded-2xl p-6 text-white shadow-lg">
-                        <h3 class="font-bold mb-4 flex items-center gap-2">
-                            <i data-lucide="settings" class="w-4 h-4"></i> Admin Controls
-                        </h3>
-                        <div class="space-y-3">
-                            <button onclick="toggleMaintenance()" class="w-full flex items-center justify-between p-3 rounded-lg bg-white/10 hover:bg-white/20 transition-colors text-sm">
-                                <span>Toggle Maintenance Mode</span>
-                                <i data-lucide="tool" class="w-4 h-4"></i>
-                            </button>
-                            <button class="w-full flex items-center justify-between p-3 rounded-lg bg-white/10 hover:bg-white/20 transition-colors text-sm">
-                                <span>Export CSV Report</span>
-                                <i data-lucide="download" class="w-4 h-4"></i>
-                            </button>
-                            <button class="w-full flex items-center justify-between p-3 rounded-lg bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 transition-colors text-sm border border-rose-500/30">
-                                <span>Emergency Stop All</span>
-                                <i data-lucide="alert-triangle" class="w-4 h-4"></i>
-                            </button>
-                        </div>
-                    </div>
-                </div>
+            <div id="connection-badge" class="flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold border bg-rose-500/20 border-rose-500/50 text-rose-400 transition-all duration-300">
+                <i data-lucide="wifi-off" class="w-3.5 h-3.5" id="connection-icon"></i>
+                <span id="connection-text">OFFLINE</span>
             </div>
         </div>
-    </section>
+    </nav>
 
-    <!-- ================= USER PANEL ================= -->
-    <section id="user-panel" class="view-section hidden bg-slate-50 min-h-screen pb-20">
-        <!-- User Navbar -->
-        <nav class="bg-white sticky top-0 z-40 shadow-sm border-b border-slate-100">
-            <div class="max-w-md mx-auto px-4 h-16 flex items-center justify-between">
-                <div class="flex items-center gap-2">
-                    <div class="w-8 h-8 bg-gradient-to-br from-blue-500 to-cyan-400 rounded-lg flex items-center justify-center text-white">
-                        <i data-lucide="zap" class="w-5 h-5"></i>
-                    </div>
-                    <span class="font-bold text-slate-800">ElectroGrid</span>
-                </div>
-                <div class="flex items-center gap-3">
-                    <div class="bg-slate-100 px-3 py-1 rounded-full text-xs font-semibold text-slate-600 flex items-center gap-1 border border-slate-200">
-                        <i data-lucide="wallet" class="w-3 h-3"></i> ₹<span id="user-wallet-balance">0.00</span>
-                    </div>
-                    <button onclick="handleLogout()" class="p-2 text-slate-400 hover:text-red-500 transition-colors">
-                        <i data-lucide="log-out" class="w-5 h-5"></i>
-                    </button>
-                </div>
-            </div>
-        </nav>
-
-        <div class="max-w-md mx-auto px-4 py-6 space-y-6">
+    <!-- Main Content -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-8">
+        
+        <!-- Grid Layout -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
             
-            <!-- Welcome & Wallet -->
-            <div class="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-2xl p-6 text-white shadow-xl shadow-blue-500/20 relative overflow-hidden">
-                <div class="absolute right-[-20px] top-[-20px] w-32 h-32 bg-white opacity-10 rounded-full blur-2xl"></div>
-                <h2 class="text-lg font-medium opacity-90">Hello, <span id="user-name-display">Driver</span></h2>
-                <p class="text-3xl font-bold mt-2 tracking-tight">₹<span id="wallet-display-lg">450.00</span></p>
-                <p class="text-xs opacity-70 mt-1">Available Balance</p>
+            <!-- Left Column: Charging Slots -->
+            <div class="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6">
                 
-                <div class="mt-6 flex gap-3">
-                    <button onclick="openModal('wallet-modal')" class="flex-1 bg-white text-blue-700 py-2 rounded-lg text-sm font-bold shadow hover:bg-blue-50 transition-colors flex items-center justify-center gap-2">
-                        <i data-lucide="plus" class="w-4 h-4"></i> Add Money
-                    </button>
-                    <button class="flex-1 bg-blue-700/50 border border-blue-400/30 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors">History</button>
+                <!-- SLOT 1 CARD -->
+                <div class="bg-white rounded-2xl shadow-xl overflow-hidden border-t-4 border-blue-500 transition-all hover:shadow-2xl">
+                    <!-- Header -->
+                    <div class="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+                        <h2 class="text-lg font-bold text-slate-800 flex items-center gap-2">
+                            <div class="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center text-blue-600 font-black">1</div>
+                            Charging Station
+                        </h2>
+                        <div id="s1-status-badge" class="px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1 uppercase tracking-wide bg-slate-100 text-slate-500">
+                            <i data-lucide="help-circle" class="w-3.5 h-3.5"></i>
+                            <span>Loading...</span>
+                        </div>
+                    </div>
+
+                    <div class="p-6">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <!-- Battery Graphic -->
+                            <div class="flex flex-col items-center justify-center bg-slate-50 rounded-xl p-2 border border-slate-100">
+                                <div class="relative w-full flex flex-col items-center justify-center py-4">
+                                    <div class="relative w-24 h-40 border-4 border-slate-700 rounded-xl bg-slate-200 overflow-hidden shadow-inner">
+                                        <div id="s1-bat-fill" class="absolute bottom-0 left-0 right-0 bg-emerald-500 transition-all duration-1000 ease-out flex items-center justify-center" style="height: 0%">
+                                            <div id="s1-charge-icon" class="animate-pulse text-white opacity-50 hidden">
+                                                <i data-lucide="zap" class="w-8 h-8" fill="currentColor"></i>
+                                            </div>
+                                        </div>
+                                        <div class="absolute inset-0 flex flex-col items-center justify-center z-10 mix-blend-multiply">
+                                            <span class="text-3xl font-black text-slate-800"><span id="s1-soc">0</span>%</span>
+                                        </div>
+                                    </div>
+                                    <div class="w-10 h-2 bg-slate-700 rounded-t-md -mt-42 mb-1"></div>
+                                    <div class="mt-3 text-center">
+                                        <span class="px-2 py-1 bg-slate-100 rounded text-xs font-mono text-slate-600 border border-slate-200">
+                                            <span id="s1-volts">0.0</span> V
+                                        </span>
+                                    </div>
+                                </div>
+                                <p class="text-xs text-slate-400 mt-2 text-center">18650 Lithium Cell</p>
+                            </div>
+
+                            <!-- Metrics -->
+                            <div class="grid grid-cols-1 gap-3">
+                                <!-- Power -->
+                                <div class="flex items-center p-3 bg-slate-50 rounded-lg border border-slate-100">
+                                    <div class="p-2 rounded-full bg-amber-500 bg-opacity-10 mr-3 text-amber-600">
+                                        <i data-lucide="zap" class="w-5 h-5"></i>
+                                    </div>
+                                    <div>
+                                        <p class="text-xs text-slate-500 uppercase font-bold tracking-wider">Power Output</p>
+                                        <p class="text-lg font-semibold text-slate-800"><span id="s1-power">0</span> <span class="text-sm font-normal text-slate-400">W</span></p>
+                                    </div>
+                                </div>
+                                <!-- Current -->
+                                <div class="flex items-center p-3 bg-slate-50 rounded-lg border border-slate-100">
+                                    <div class="p-2 rounded-full bg-violet-500 bg-opacity-10 mr-3 text-violet-600">
+                                        <i data-lucide="activity" class="w-5 h-5"></i>
+                                    </div>
+                                    <div>
+                                        <p class="text-xs text-slate-500 uppercase font-bold tracking-wider">Current Draw</p>
+                                        <p class="text-lg font-semibold text-slate-800"><span id="s1-current">0</span> <span class="text-sm font-normal text-slate-400">A</span></p>
+                                    </div>
+                                </div>
+                                <!-- Env -->
+                                <div class="grid grid-cols-2 gap-2 mt-2">
+                                    <div class="bg-blue-50 rounded-lg p-2 text-center">
+                                        <i data-lucide="thermometer" class="w-4 h-4 mx-auto text-blue-400 mb-1"></i>
+                                        <span class="text-sm font-bold text-slate-700"><span id="s1-temp">--</span>°C</span>
+                                    </div>
+                                    <div class="bg-cyan-50 rounded-lg p-2 text-center">
+                                        <i data-lucide="droplets" class="w-4 h-4 mx-auto text-cyan-400 mb-1"></i>
+                                        <span class="text-sm font-bold text-slate-700"><span id="s1-hum">--</span>%</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- SLOT 2 CARD -->
+                <div class="bg-white rounded-2xl shadow-xl overflow-hidden border-t-4 border-blue-500 transition-all hover:shadow-2xl">
+                    <!-- Header -->
+                    <div class="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+                        <h2 class="text-lg font-bold text-slate-800 flex items-center gap-2">
+                            <div class="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center text-blue-600 font-black">2</div>
+                            Charging Station
+                        </h2>
+                        <div id="s2-status-badge" class="px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1 uppercase tracking-wide bg-slate-100 text-slate-500">
+                            <i data-lucide="help-circle" class="w-3.5 h-3.5"></i>
+                            <span>Loading...</span>
+                        </div>
+                    </div>
+
+                    <div class="p-6">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <!-- Battery Graphic -->
+                            <div class="flex flex-col items-center justify-center bg-slate-50 rounded-xl p-2 border border-slate-100">
+                                <div class="relative w-full flex flex-col items-center justify-center py-4">
+                                    <div class="relative w-24 h-40 border-4 border-slate-700 rounded-xl bg-slate-200 overflow-hidden shadow-inner">
+                                        <div id="s2-bat-fill" class="absolute bottom-0 left-0 right-0 bg-emerald-500 transition-all duration-1000 ease-out flex items-center justify-center" style="height: 0%">
+                                            <div id="s2-charge-icon" class="animate-pulse text-white opacity-50 hidden">
+                                                <i data-lucide="zap" class="w-8 h-8" fill="currentColor"></i>
+                                            </div>
+                                        </div>
+                                        <div class="absolute inset-0 flex flex-col items-center justify-center z-10 mix-blend-multiply">
+                                            <span class="text-3xl font-black text-slate-800"><span id="s2-soc">0</span>%</span>
+                                        </div>
+                                    </div>
+                                    <div class="w-10 h-2 bg-slate-700 rounded-t-md -mt-42 mb-1"></div>
+                                    <div class="mt-3 text-center">
+                                        <span class="px-2 py-1 bg-slate-100 rounded text-xs font-mono text-slate-600 border border-slate-200">
+                                            <span id="s2-volts">0.0</span> V
+                                        </span>
+                                    </div>
+                                </div>
+                                <p class="text-xs text-slate-400 mt-2 text-center">18650 Lithium Cell</p>
+                            </div>
+
+                            <!-- Metrics -->
+                            <div class="grid grid-cols-1 gap-3">
+                                <!-- Power -->
+                                <div class="flex items-center p-3 bg-slate-50 rounded-lg border border-slate-100">
+                                    <div class="p-2 rounded-full bg-amber-500 bg-opacity-10 mr-3 text-amber-600">
+                                        <i data-lucide="zap" class="w-5 h-5"></i>
+                                    </div>
+                                    <div>
+                                        <p class="text-xs text-slate-500 uppercase font-bold tracking-wider">Power Output</p>
+                                        <p class="text-lg font-semibold text-slate-800"><span id="s2-power">0</span> <span class="text-sm font-normal text-slate-400">W</span></p>
+                                    </div>
+                                </div>
+                                <!-- Current -->
+                                <div class="flex items-center p-3 bg-slate-50 rounded-lg border border-slate-100">
+                                    <div class="p-2 rounded-full bg-violet-500 bg-opacity-10 mr-3 text-violet-600">
+                                        <i data-lucide="activity" class="w-5 h-5"></i>
+                                    </div>
+                                    <div>
+                                        <p class="text-xs text-slate-500 uppercase font-bold tracking-wider">Current Draw</p>
+                                        <p class="text-lg font-semibold text-slate-800"><span id="s2-current">0</span> <span class="text-sm font-normal text-slate-400">A</span></p>
+                                    </div>
+                                </div>
+                                <!-- Env -->
+                                <div class="grid grid-cols-2 gap-2 mt-2">
+                                    <div class="bg-blue-50 rounded-lg p-2 text-center">
+                                        <i data-lucide="thermometer" class="w-4 h-4 mx-auto text-blue-400 mb-1"></i>
+                                        <span class="text-sm font-bold text-slate-700"><span id="s2-temp">--</span>°C</span>
+                                    </div>
+                                    <div class="bg-cyan-50 rounded-lg p-2 text-center">
+                                        <i data-lucide="droplets" class="w-4 h-4 mx-auto text-cyan-400 mb-1"></i>
+                                        <span class="text-sm font-bold text-slate-700"><span id="s2-hum">--</span>%</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
 
-            <!-- Active Charging Session (Dynamic) -->
-            <div id="active-session-card" class="hidden bg-white rounded-2xl p-5 border border-blue-100 shadow-lg relative overflow-hidden">
-                <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-green-400 to-blue-500 animate-gradient"></div>
-                <div class="flex justify-between items-start mb-4">
-                    <div>
-                        <h3 class="font-bold text-slate-800 flex items-center gap-2">
-                            <span class="relative flex h-3 w-3">
-                                <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                                <span class="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
-                            </span>
-                            Charging 18650 Pack
+            <!-- Right Column: Stats & Logs -->
+            <div class="flex flex-col gap-6">
+                
+                <!-- Session Counter -->
+                <div class="bg-gradient-to-br from-blue-600 to-indigo-700 rounded-2xl shadow-lg p-6 text-white relative overflow-hidden">
+                    <div class="absolute top-0 right-0 opacity-10 transform translate-x-4 -translate-y-4">
+                        <i data-lucide="users" class="w-32 h-32"></i>
+                    </div>
+                    <div class="relative z-10">
+                        <h3 class="text-blue-100 font-medium mb-2 flex items-center gap-2">
+                            <i data-lucide="users" class="w-5 h-5"></i> Active Sessions
                         </h3>
-                        <p class="text-xs text-slate-500 mt-1">Slot <span id="session-slot-id">1</span> • <span id="session-timer">00:00:00</span></p>
-                    </div>
-                    <button onclick="stopCharging()" class="bg-red-50 text-red-600 p-2 rounded-lg hover:bg-red-100 transition-colors">
-                        <i data-lucide="square" class="w-5 h-5 fill-current"></i>
-                    </button>
-                </div>
-                
-                <!-- Charging Visual -->
-                <div class="flex flex-col items-center justify-center py-4 relative">
-                    <div class="w-32 h-32 rounded-full border-8 border-slate-100 flex items-center justify-center relative">
-                        <svg class="absolute top-0 left-0 w-full h-full transform -rotate-90 drop-shadow-lg">
-                            <circle cx="64" cy="64" r="58" stroke="currentColor" stroke-width="8" fill="transparent" class="text-emerald-500" stroke-dasharray="365" stroke-dashoffset="100" id="session-circle"></circle>
-                        </svg>
-                        <div class="text-center">
-                            <span class="text-2xl font-bold text-slate-800 block"><span id="session-soc">0</span>%</span>
-                            <i data-lucide="zap" class="w-5 h-5 text-amber-400 mx-auto fill-current animate-pulse"></i>
+                        <div class="flex items-baseline gap-2">
+                            <span id="session-count" class="text-5xl font-bold">0</span>
+                            <span class="text-blue-200 text-sm">Users Authorized</span>
+                        </div>
+                        <div class="mt-4 h-1 w-full bg-blue-900/30 rounded-full overflow-hidden">
+                            <div class="h-full bg-blue-400 animate-pulse w-2/3"></div>
                         </div>
                     </div>
                 </div>
 
-                <div class="grid grid-cols-3 gap-2 mt-4 text-center">
-                    <div class="bg-slate-50 p-2 rounded-lg">
-                        <p class="text-[10px] text-slate-400 uppercase font-bold">Power</p>
-                        <p class="font-semibold text-slate-700"><span id="session-kw">0</span> kW</p>
+                <!-- RFID Log -->
+                <div class="bg-white rounded-2xl shadow-lg border border-slate-100 overflow-hidden flex flex-col flex-1 min-h-[300px]">
+                    <div class="p-4 border-b border-slate-100 bg-slate-50/50 flex justify-between items-center">
+                        <h3 class="font-bold text-slate-700 flex items-center gap-2">
+                            <i data-lucide="history" class="w-4 h-4 text-slate-400"></i> Access Log
+                        </h3>
+                        <span id="log-count" class="text-xs bg-slate-200 text-slate-600 px-2 py-1 rounded-full">0 Events</span>
                     </div>
-                     <div class="bg-slate-50 p-2 rounded-lg">
-                        <p class="text-[10px] text-slate-400 uppercase font-bold">Added</p>
-                        <p class="font-semibold text-slate-700"><span id="session-kwh">0</span> kWh</p>
-                    </div>
-                     <div class="bg-slate-50 p-2 rounded-lg">
-                        <p class="text-[10px] text-slate-400 uppercase font-bold">Cost</p>
-                        <p class="font-semibold text-slate-700">₹<span id="session-cost">0.00</span></p>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Booking Section -->
-            <div id="booking-section">
-                <h3 class="font-bold text-slate-800 mb-3 flex items-center gap-2">
-                    <i data-lucide="calendar-clock" class="w-5 h-5 text-blue-500"></i> Book a Slot
-                </h3>
-                <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-                    <div class="p-4 border-b border-slate-100 bg-slate-50/50 grid grid-cols-2 gap-4">
-                         <div>
-                            <label class="text-xs font-bold text-slate-500 block mb-1">Date</label>
-                            <input type="date" id="book-date" class="w-full text-sm bg-white border border-slate-300 rounded p-2 outline-none focus:border-blue-500">
-                         </div>
-                         <div>
-                            <label class="text-xs font-bold text-slate-500 block mb-1">Time</label>
-                            <input type="time" id="book-time" class="w-full text-sm bg-white border border-slate-300 rounded p-2 outline-none focus:border-blue-500">
-                         </div>
-                    </div>
-                    <div class="p-4">
-                        <p class="text-xs font-bold text-slate-500 mb-3">Select Station</p>
-                        <div class="grid grid-cols-2 gap-3">
-                            <button onclick="selectSlot(1)" id="btn-slot-1" class="border-2 border-slate-200 rounded-xl p-3 flex flex-col items-center gap-2 hover:border-blue-500 transition-all bg-white group">
-                                <i data-lucide="zap" class="w-6 h-6 text-slate-300 group-hover:text-blue-500"></i>
-                                <span class="text-sm font-semibold">Station 1</span>
-                                <span class="text-[10px] bg-green-100 text-green-600 px-2 rounded-full">Available</span>
-                            </button>
-                            <button onclick="selectSlot(2)" id="btn-slot-2" class="border-2 border-slate-200 rounded-xl p-3 flex flex-col items-center gap-2 hover:border-blue-500 transition-all bg-white group">
-                                <i data-lucide="zap" class="w-6 h-6 text-slate-300 group-hover:text-blue-500"></i>
-                                <span class="text-sm font-semibold">Station 2</span>
-                                <span class="text-[10px] bg-green-100 text-green-600 px-2 rounded-full">Available</span>
-                            </button>
+                    <div id="rfid-log-container" class="overflow-y-auto p-0 max-h-[300px]">
+                        <div class="p-8 text-center text-slate-400 text-sm italic">
+                            Waiting for RFID scans...
                         </div>
-                        <button onclick="confirmBooking()" class="w-full mt-4 bg-slate-900 text-white py-3 rounded-xl font-bold text-sm hover:bg-slate-800 transition-all shadow-lg">
-                            Confirm Booking (₹40.00)
-                        </button>
                     </div>
                 </div>
-            </div>
 
-            <!-- Nearby Stations (Static Extra) -->
-            <div class="mt-8">
-                <h3 class="font-bold text-slate-800 mb-3 flex items-center gap-2">
-                    <i data-lucide="map-pin" class="w-5 h-5 text-red-500"></i> Nearby Stations
-                </h3>
-                <div class="bg-white rounded-xl p-3 border border-slate-200 shadow-sm flex items-center gap-3 mb-2">
-                    <div class="w-10 h-10 bg-slate-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                        <i data-lucide="navigation" class="w-5 h-5 text-slate-600"></i>
-                    </div>
-                    <div class="flex-1">
-                        <h4 class="text-sm font-bold">City Mall Charger</h4>
-                        <p class="text-xs text-slate-400">0.8 km • Fast Charging</p>
-                    </div>
-                    <a href="#" class="text-blue-600"><i data-lucide="arrow-right" class="w-5 h-5"></i></a>
-                </div>
-                <div class="bg-white rounded-xl p-3 border border-slate-200 shadow-sm flex items-center gap-3">
-                    <div class="w-10 h-10 bg-slate-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                        <i data-lucide="navigation" class="w-5 h-5 text-slate-600"></i>
-                    </div>
-                    <div class="flex-1">
-                        <h4 class="text-sm font-bold">Tech Park Zone B</h4>
-                        <p class="text-xs text-slate-400">2.1 km • Standard</p>
-                    </div>
-                    <a href="#" class="text-blue-600"><i data-lucide="arrow-right" class="w-5 h-5"></i></a>
-                </div>
             </div>
         </div>
-    </section>
 
-    <!-- ================= MODALS ================= -->
-    
-    <!-- Wallet Modal -->
-    <div id="wallet-modal" class="fixed inset-0 z-50 hidden flex items-center justify-center bg-black/60 backdrop-blur-sm opacity-0 transition-opacity duration-300">
-        <div class="bg-white rounded-2xl w-full max-w-xs p-6 m-4 transform scale-95 transition-transform duration-300">
-            <div class="flex justify-between items-center mb-4">
-                <h3 class="font-bold text-lg">Add Funds</h3>
-                <button onclick="closeModal('wallet-modal')"><i data-lucide="x" class="w-5 h-5"></i></button>
-            </div>
-            <div class="grid grid-cols-3 gap-2 mb-4">
-                <button onclick="setAmount(100)" class="border rounded-lg p-2 text-sm font-bold hover:bg-blue-50 hover:border-blue-500">₹100</button>
-                <button onclick="setAmount(500)" class="border rounded-lg p-2 text-sm font-bold hover:bg-blue-50 hover:border-blue-500">₹500</button>
-                <button onclick="setAmount(1000)" class="border rounded-lg p-2 text-sm font-bold hover:bg-blue-50 hover:border-blue-500">₹1000</button>
-            </div>
-            <input type="number" id="add-amount" class="w-full border rounded-lg p-3 mb-4 outline-none focus:border-blue-500 font-bold text-lg text-center" placeholder="₹0.00">
-            <button onclick="addMoney()" class="w-full bg-emerald-500 text-white py-3 rounded-xl font-bold shadow hover:bg-emerald-600">Pay Securely</button>
+        <!-- Footer -->
+        <div class="text-center text-slate-400 text-sm mt-12">
+            <p>© 2024 EV Smart Station System • Powered by ESP32 & Firebase</p>
         </div>
-    </div>
+    </main>
 
     <!-- JAVASCRIPT LOGIC -->
     <script type="module">
-        // --- CONFIGURATION & IMPORTS ---
-        // Import Firebase (Simulated if no config)
-        // For real use, replace the import URLs with your Firebase SDK version
-        // import { initializeApp } from "https://www.gstatic.com/firebasejs/9.x.x/firebase-app.js";
-        
-        // ---------------------------------------------------------
-        // STATE MANAGEMENT & MOCK DATABASE
-        // ---------------------------------------------------------
-        
-        // We use a "Simulated Backend" to ensure the generated code works immediately 
-        // for the user without requiring an API key setup step.
-        
-        const state = {
-            currentUser: null, // { name, email, role, balance, uid }
-            view: 'auth',
-            slots: {
-                1: { voltage: 220, current: 0, power: 0, soc: 0, temp: 32, status: 'available' },
-                2: { voltage: 220, current: 0, power: 0, soc: 0, temp: 30, status: 'available' }
-            },
-            activeSession: null, // { slotId, startTime, startSoC, kwh }
-            rfidLogs: [],
-            bookings: []
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-app.js";
+        import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-database.js";
+
+        // Configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyDDWy_6FbRAfr7DdHNUeWXfL7iYkL1-Xa0",
+            authDomain: "ev-station-b57b1.firebaseapp.com",
+            projectId: "ev-station-b57b1",
+            storageBucket: "ev-station-b57b1.firebasestorage.app",
+            messagingSenderId: "601772739558",
+            appId: "1:601772739558:web:d7439ed8bd24479df76427",
+            measurementId: "G-THKSGK2H9Z"
         };
 
-        let simulationInterval;
+        // Init Firebase
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
 
-        // ---------------------------------------------------------
-        // UI UTILITIES
-        // ---------------------------------------------------------
-        
-        window.lucide.createIcons();
+        // Initial Icon Render
+        lucide.createIcons();
 
-        window.showToast = (message, type = 'info') => {
-            const container = document.getElementById('toast-container');
-            const toast = document.createElement('div');
-            
-            const colors = {
-                success: 'bg-emerald-500',
-                error: 'bg-rose-500',
-                info: 'bg-slate-800'
-            };
-            
-            const icons = {
-                success: 'check-circle',
-                error: 'alert-circle',
-                info: 'info'
-            };
+        // State
+        let lastUid = "";
+        let logCount = 0;
+        const MAX_LOGS = 20;
+        const VOLTAGE_THRESHOLD = 0.5; 
 
-            toast.className = `${colors[type]} text-white px-4 py-3 rounded-lg shadow-xl flex items-center gap-3 min-w-[300px] animate-fadeIn transform transition-all`;
-            toast.innerHTML = `
-                <i data-lucide="${icons[type]}" class="w-5 h-5"></i>
-                <span class="font-medium text-sm">${message}</span>
-            `;
-            
-            container.appendChild(toast);
-            window.lucide.createIcons();
+        // --- UI UPDATERS ---
 
-            setTimeout(() => {
-                toast.style.opacity = '0';
-                toast.style.transform = 'translateX(100%)';
-                setTimeout(() => toast.remove(), 300);
-            }, 3000);
-        };
+        // 1. Connection Status
+        const connectedRef = ref(db, ".info/connected");
+        onValue(connectedRef, (snap) => {
+            const isConnected = !!snap.val();
+            const badge = document.getElementById('connection-badge');
+            const text = document.getElementById('connection-text');
+            const icon = document.getElementById('connection-icon');
 
-        window.openModal = (id) => {
-            const modal = document.getElementById(id);
-            modal.classList.remove('hidden');
-            // Small delay for transition
-            setTimeout(() => {
-                modal.classList.remove('opacity-0');
-                modal.querySelector('div').classList.remove('scale-95');
-                modal.querySelector('div').classList.add('scale-100');
-            }, 10);
-        };
-
-        window.closeModal = (id) => {
-            const modal = document.getElementById(id);
-            modal.classList.add('opacity-0');
-            modal.querySelector('div').classList.add('scale-95');
-            modal.querySelector('div').classList.remove('scale-100');
-            setTimeout(() => modal.classList.add('hidden'), 300);
-        };
-
-        window.switchAuthTab = (tab) => {
-            const loginBtn = document.getElementById('tab-login');
-            const signupBtn = document.getElementById('tab-signup');
-            const loginForm = document.getElementById('login-form');
-            const signupForm = document.getElementById('signup-form');
-
-            if(tab === 'login') {
-                loginBtn.classList.add('bg-slate-700', 'text-white', 'shadow');
-                loginBtn.classList.remove('text-slate-400');
-                signupBtn.classList.remove('bg-slate-700', 'text-white', 'shadow');
-                signupBtn.classList.add('text-slate-400');
-                loginForm.classList.remove('hidden');
-                signupForm.classList.add('hidden');
+            if (isConnected) {
+                badge.className = "flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold border transition-all duration-300 bg-emerald-500/20 border-emerald-500/50 text-emerald-400";
+                text.textContent = "ONLINE";
+                icon.setAttribute('data-lucide', 'wifi');
             } else {
-                signupBtn.classList.add('bg-slate-700', 'text-white', 'shadow');
-                signupBtn.classList.remove('text-slate-400');
-                loginBtn.classList.remove('bg-slate-700', 'text-white', 'shadow');
-                loginBtn.classList.add('text-slate-400');
-                signupForm.classList.remove('hidden');
-                loginForm.classList.add('hidden');
+                badge.className = "flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold border transition-all duration-300 bg-rose-500/20 border-rose-500/50 text-rose-400";
+                text.textContent = "OFFLINE";
+                icon.setAttribute('data-lucide', 'wifi-off');
             }
-        };
-        
-        window.fillCreds = (role) => {
-            if(role === 'admin') {
-                document.getElementById('login-email').value = 'admin@electro.com';
-                document.getElementById('login-password').value = 'admin123';
+            lucide.createIcons();
+        });
+
+        // 2. Update Slot UI Helper
+        const updateSlot = (idPrefix, data) => {
+            if(!data) return;
+
+            // --- SMART HARDWARE ERROR FILTERING ---
+            let rawVolts = parseFloat(data.Voltage || 0);
+            let rawAmps = parseFloat(data.Current || 0);
+            let rawPower = parseFloat(data.Power || 0);
+            let rawSoC = parseInt(data.SoC || 0);
+            let rawTemp = data.Temperature;
+            let rawHum = data.Humidity;
+
+            // Error 1: Floating Current Sensor (Negative Values)
+            // If Amps are below -1.0, it means the sensor pin is likely reading 0V (disconnected), so we force 0.
+            if (rawAmps < -1.0) {
+                rawAmps = 0;
+                rawPower = 0; // Recalculate power to 0 if amps are fake
+            }
+
+            // Error 2: Low Voltage Noise
+            if (rawVolts < VOLTAGE_THRESHOLD) {
+                rawVolts = 0;
+                rawAmps = 0;
+                rawPower = 0;
+                rawSoC = 0;
+            }
+            
+            // Force Positive 0.00 display
+            if (rawAmps < 0) rawAmps = 0;
+            if (rawPower < 0) rawPower = 0;
+
+            // Update Text Values
+            document.getElementById(`${idPrefix}-volts`).textContent = rawVolts.toFixed(2);
+            document.getElementById(`${idPrefix}-current`).textContent = rawAmps.toFixed(2);
+            document.getElementById(`${idPrefix}-power`).textContent = rawPower.toFixed(2);
+            document.getElementById(`${idPrefix}-soc`).textContent = rawSoC;
+            document.getElementById(`${idPrefix}-temp`).textContent = rawTemp || '--';
+            document.getElementById(`${idPrefix}-hum`).textContent = rawHum || '--';
+
+            // Update Status Badge
+            // Logic: "Occupied" only if IR sensor says so AND we have valid (non-error) readings
+            const isAvailable = data.IsAvailable === true;
+            const badge = document.getElementById(`${idPrefix}-status-badge`);
+            
+            if (isAvailable) {
+                badge.className = "px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1 uppercase tracking-wide bg-emerald-100 text-emerald-700";
+                badge.innerHTML = `<i data-lucide="check-circle" class="w-3.5 h-3.5"></i> <span>Available</span>`;
             } else {
-                document.getElementById('login-email').value = 'user@gmail.com';
-                document.getElementById('login-password').value = 'user123';
-            }
-        };
-
-        // ---------------------------------------------------------
-        // AUTHENTICATION LOGIC
-        // ---------------------------------------------------------
-
-        window.handleLogin = (e) => {
-            e.preventDefault();
-            const email = document.getElementById('login-email').value;
-            const pass = document.getElementById('login-password').value;
-
-            // Simulating Firebase Auth
-            setTimeout(() => {
-                if(email === 'admin@electro.com' && pass === 'admin123') {
-                    state.currentUser = { name: 'System Admin', role: 'admin', email };
-                    showView('admin-panel');
-                    window.showToast('Welcome back, Admin!', 'success');
-                    initAdminDashboard();
-                } else if(pass === 'user123') {
-                    state.currentUser = { 
-                        name: 'John Doe', 
-                        role: 'user', 
-                        email, 
-                        balance: 450.50, 
-                        uid: 'u_'+Math.floor(Math.random()*1000) 
-                    };
-                    showView('user-panel');
-                    window.showToast('Login successful', 'success');
-                    initUserDashboard();
+                if (rawVolts === 0 && rawAmps === 0) {
+                     // IR blocked but no power -> Parked but not charging
+                     badge.className = "px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1 uppercase tracking-wide bg-amber-100 text-amber-700";
+                     badge.innerHTML = `<i data-lucide="alert-circle" class="w-3.5 h-3.5"></i> <span>Parked</span>`;
                 } else {
-                    window.showToast('Invalid credentials', 'error');
+                     // Charging
+                     badge.className = "px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1 uppercase tracking-wide bg-rose-100 text-rose-700";
+                     badge.innerHTML = `<i data-lucide="car" class="w-3.5 h-3.5"></i> <span>Occupied</span>`;
                 }
-            }, 800);
-        };
+            }
 
-        window.handleSignup = (e) => {
-            e.preventDefault();
-            window.showToast('Account created! Please login.', 'success');
-            switchAuthTab('login');
-        };
-
-        window.handleLogout = () => {
-            state.currentUser = null;
-            clearInterval(simulationInterval);
-            showView('auth-view');
-            window.showToast('Logged out successfully', 'info');
-        };
-
-        function showView(viewId) {
-            document.querySelectorAll('.view-section').forEach(el => {
-                el.classList.remove('active');
-                el.classList.add('hidden'); // Ensure hidden is applied
-                setTimeout(() => {
-                    if(el.id === viewId) {
-                        el.classList.remove('hidden');
-                        el.classList.add('active');
-                    }
-                }, 50);
-            });
-            window.scrollTo(0,0);
-        }
-
-        // ---------------------------------------------------------
-        // ADMIN DASHBOARD LOGIC
-        // ---------------------------------------------------------
-
-        let chartInstance = null;
-
-        function initAdminDashboard() {
-            // Setup Chart
-            const ctx = document.getElementById('revenueChart').getContext('2d');
-            if(chartInstance) chartInstance.destroy();
+            // Battery Visual
+            const fill = document.getElementById(`${idPrefix}-bat-fill`);
+            const chargeIcon = document.getElementById(`${idPrefix}-charge-icon`);
             
-            chartInstance = new Chart(ctx, {
-                type: 'line',
-                data: {
-                    labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
-                    datasets: [{
-                        label: 'Revenue (₹)',
-                        data: [1200, 1900, 3000, 5000, 4500, 12450],
-                        borderColor: '#2563eb',
-                        backgroundColor: 'rgba(37, 99, 235, 0.1)',
-                        tension: 0.4,
-                        fill: true
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    plugins: { legend: { display: false } },
-                    scales: { y: { beginAtZero: true } }
-                }
-            });
+            fill.style.height = `${rawSoC}%`;
 
-            // Start Live Simulation Loop
-            startLiveSimulation();
-        }
-
-        function startLiveSimulation() {
-            if(simulationInterval) clearInterval(simulationInterval);
+            // Color Logic
+            fill.classList.remove('bg-emerald-500', 'bg-amber-400', 'bg-red-500', 'bg-slate-400');
             
-            simulationInterval = setInterval(() => {
-                // 1. Simulate fluctuation in Grid Voltage
-                const baseVolts = 230;
-                const noise = (Math.random() * 2) - 1; // +/- 1V
-                
-                // 2. Simulate Active Charging Session (Logic for both Admin and User)
-                if(state.activeSession) {
-                    const slotId = state.activeSession.slotId;
-                    const slot = state.slots[slotId];
-                    
-                    // Charging Physics
-                    slot.status = 'charging';
-                    slot.voltage = baseVolts + noise;
-                    slot.current = 16 + (Math.random() * 0.5); // Approx 16A
-                    slot.power = (slot.voltage * slot.current).toFixed(0);
-                    
-                    // Increment SoC
-                    if(slot.soc < 100) {
-                        slot.soc += 0.2; // Fast charge simulation
-                        if(slot.soc > 100) slot.soc = 100;
-                    }
-                    
-                    // Temp rise
-                    if(slot.temp < 45) slot.temp += 0.1;
-                    
-                    // Update Active Session Data
-                    state.activeSession.kwh += (slot.power / 1000 / 3600); // kWh per second
-                    
-                } else {
-                    // Idle state
-                    Object.values(state.slots).forEach(slot => {
-                        if(slot.status !== 'charging') {
-                            slot.voltage = baseVolts + noise;
-                            slot.current = 0;
-                            slot.power = 0;
-                            if(slot.temp > 25) slot.temp -= 0.1; // Cool down
-                        }
-                    });
-                }
-
-                updateAdminUI();
-                if(state.currentUser?.role === 'user') updateUserUI();
-
-            }, 1000);
-        }
-
-        function updateAdminUI() {
-            // Update Slot 1
-            const s1 = state.slots[1];
-            document.getElementById('val-v-s1').textContent = s1.voltage.toFixed(1);
-            document.getElementById('val-a-s1').textContent = s1.current.toFixed(1);
-            document.getElementById('val-w-s1').textContent = s1.power;
-            document.getElementById('val-t-s1').textContent = s1.temp.toFixed(1);
-            document.getElementById('val-soc-s1').textContent = Math.floor(s1.soc);
-            document.getElementById('bar-soc-s1').style.width = `${s1.soc}%`;
-            
-            const b1 = document.getElementById('badge-s1');
-            if(s1.current > 1) {
-                b1.className = "px-3 py-1 rounded-full text-xs font-bold bg-blue-100 text-blue-700 flex items-center gap-1 animate-pulse";
-                b1.innerHTML = `<i data-lucide="zap" class="w-3 h-3"></i> CHARGING`;
+            if (rawVolts === 0) {
+                 fill.classList.add('bg-slate-400');
+            } else if(rawSoC < 20) {
+                fill.classList.add('bg-red-500');
+            } else if(rawSoC < 50) {
+                fill.classList.add('bg-amber-400');
             } else {
-                b1.className = "px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-700 flex items-center gap-1";
-                b1.innerHTML = `<i data-lucide="check-circle" class="w-3 h-3"></i> AVAILABLE`;
+                fill.classList.add('bg-emerald-500');
             }
 
-            // Update Slot 2 (Mirror logic for brevity in demo)
-            const s2 = state.slots[2];
-            document.getElementById('val-v-s2').textContent = s2.voltage.toFixed(1);
-            // ... (Simpler update for S2 to save code lines, assumes mostly idle in demo)
-        }
-
-        window.addMockRFIDLog = () => {
-            const uids = ['A3:4B:11:0C', 'F1:22:9A:BB', 'C4:11:EE:FF'];
-            const uid = uids[Math.floor(Math.random() * uids.length)];
-            const time = new Date().toLocaleTimeString();
-            
-            const div = document.createElement('div');
-            div.className = "flex items-center justify-between p-2 hover:bg-slate-50 rounded border-b border-slate-50 text-sm animate-fadeIn";
-            div.innerHTML = `
-                <div>
-                    <p class="font-mono font-bold text-slate-700">${uid}</p>
-                    <p class="text-xs text-slate-400">${time}</p>
-                </div>
-                <span class="text-xs bg-green-100 text-green-600 px-2 py-1 rounded">Authorized</span>
-            `;
-            
-            const container = document.getElementById('rfid-logs-container');
-            // Remove "No scans" text if present
-            if(container.children[0]?.classList.contains('text-center')) container.innerHTML = '';
-            container.prepend(div);
-        };
-
-        window.toggleMaintenance = () => {
-            window.showToast('Maintenance Mode Toggled', 'info');
-        }
-
-        // ---------------------------------------------------------
-        // USER DASHBOARD LOGIC
-        // ---------------------------------------------------------
-
-        let selectedSlot = null;
-
-        function initUserDashboard() {
-            document.getElementById('user-name-display').textContent = state.currentUser.name.split(' ')[0];
-            updateWalletDisplay();
-            
-            // Set default date to today
-            document.getElementById('book-date').valueAsDate = new Date();
-        }
-
-        function updateWalletDisplay() {
-            const bal = state.currentUser.balance.toFixed(2);
-            document.getElementById('user-wallet-balance').textContent = bal;
-            document.getElementById('wallet-display-lg').textContent = bal;
-        }
-
-        window.setAmount = (amt) => {
-            document.getElementById('add-amount').value = amt;
-        };
-
-        window.addMoney = () => {
-            const amount = parseFloat(document.getElementById('add-amount').value);
-            if(!amount || amount <= 0) return window.showToast('Enter valid amount', 'error');
-            
-            // Simulate API call
-            const btn = document.querySelector('#wallet-modal button[onclick="addMoney()"]');
-            const originalText = btn.innerText;
-            btn.innerText = "Processing...";
-            
-            setTimeout(() => {
-                state.currentUser.balance += amount;
-                updateWalletDisplay();
-                closeModal('wallet-modal');
-                window.showToast(`Successfully added ₹${amount}`, 'success');
-                btn.innerText = originalText;
-            }, 1500);
-        };
-
-        window.selectSlot = (id) => {
-            selectedSlot = id;
-            // Visual feedback
-            document.getElementById('btn-slot-1').classList.remove('border-blue-500', 'ring-2', 'ring-blue-200');
-            document.getElementById('btn-slot-2').classList.remove('border-blue-500', 'ring-2', 'ring-blue-200');
-            
-            document.getElementById(`btn-slot-${id}`).classList.add('border-blue-500', 'ring-2', 'ring-blue-200');
-        };
-
-        window.confirmBooking = () => {
-            if(!selectedSlot) return window.showToast('Please select a charging station', 'error');
-            if(state.currentUser.balance < 40.00) return window.showToast('Insufficient balance', 'error');
-
-            state.currentUser.balance -= 40.00;
-            updateWalletDisplay();
-
-            window.showToast('Booking Confirmed! Slot opening...', 'success');
-            
-            // Simulate connection process
-            setTimeout(() => {
-                startUserChargingSession(selectedSlot);
-            }, 1500);
-        };
-
-        function startUserChargingSession(slotId) {
-            // Hide Booking, Show Charging
-            document.getElementById('booking-section').classList.add('hidden');
-            document.getElementById('active-session-card').classList.remove('hidden');
-            
-            // Initialize Session State
-            state.activeSession = {
-                slotId: slotId,
-                startTime: Date.now(),
-                kwh: 0,
-                cost: 0
-            };
-            
-            // Initialize Slot State
-            state.slots[slotId].soc = 20; // Start at 20% for demo
-            
-            document.getElementById('session-slot-id').textContent = slotId;
-            
-            // The global simulation interval will pick this up and update numbers
-        }
-
-        window.stopCharging = () => {
-            if(!confirm("Stop charging session?")) return;
-            
-            state.activeSession = null;
-            // Reset UI
-            document.getElementById('booking-section').classList.remove('hidden');
-            document.getElementById('active-session-card').classList.add('hidden');
-            window.showToast('Session Ended. Receipt sent to email.', 'info');
-            
-            // Reset Slot
-            if(selectedSlot) {
-                state.slots[selectedSlot].status = 'available';
-                state.slots[selectedSlot].current = 0;
+            // Charging Animation (Only if > 0.1A positive current)
+            const isCharging = !isAvailable && (rawAmps > 0.1);
+            if(isCharging) {
+                chargeIcon.classList.remove('hidden');
+            } else {
+                chargeIcon.classList.add('hidden');
             }
-            selectedSlot = null;
-            // Reset buttons
-             document.getElementById('btn-slot-1').classList.remove('border-blue-500', 'ring-2', 'ring-blue-200');
-             document.getElementById('btn-slot-2').classList.remove('border-blue-500', 'ring-2', 'ring-blue-200');
+
+            lucide.createIcons();
         };
 
-        function updateUserUI() {
-            if(state.activeSession) {
-                // Timer
-                const elapsed = Math.floor((Date.now() - state.activeSession.startTime) / 1000);
-                const mins = Math.floor(elapsed / 60).toString().padStart(2, '0');
-                const secs = (elapsed % 60).toString().padStart(2, '0');
-                document.getElementById('session-timer').textContent = `00:${mins}:${secs}`;
-                
-                // Data from slot
-                const slot = state.slots[state.activeSession.slotId];
-                const soc = Math.floor(slot.soc);
-                
-                document.getElementById('session-soc').textContent = soc;
-                document.getElementById('session-kw').textContent = (slot.power / 1000).toFixed(2);
-                document.getElementById('session-kwh').textContent = state.activeSession.kwh.toFixed(3);
-                
-                // SVG Circle Progress
-                const circle = document.getElementById('session-circle');
-                const radius = circle.r.baseVal.value;
-                const circumference = radius * 2 * Math.PI;
-                const offset = circumference - (soc / 100) * circumference;
-                circle.style.strokeDashoffset = offset;
+        // 3. Listeners
+        onValue(ref(db, '/EV/Slot1'), (snap) => updateSlot('s1', snap.val()));
+        onValue(ref(db, '/EV/Slot2'), (snap) => updateSlot('s2', snap.val()));
 
-                // Update Cost (₹15.00 per kWh)
-                const cost = state.activeSession.kwh * 15.0;
-                document.getElementById('session-cost').textContent = cost.toFixed(2);
+        onValue(ref(db, '/EV/ActiveSessions'), (snap) => {
+            document.getElementById('session-count').textContent = snap.val() || 0;
+        });
+
+        // 4. RFID Logic
+        const rfidContainer = document.getElementById('rfid-log-container');
+        
+        onValue(ref(db, '/EV/RFID/UID'), (snap) => {
+            const uid = snap.val();
+            if(uid && uid !== lastUid) {
+                lastUid = uid;
+                logCount++;
+                
+                if(rfidContainer.innerText.includes("Waiting")) {
+                    rfidContainer.innerHTML = '';
+                }
+
+                const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+                const logEntry = document.createElement('div');
+                logEntry.className = "flex items-center p-3 border-b border-slate-50 hover:bg-slate-50 transition-colors animate-fade-in-down";
+                logEntry.innerHTML = `
+                    <div class="w-8 h-8 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center text-xs font-bold mr-3">ID</div>
+                    <div class="flex-1">
+                        <p class="font-mono text-sm font-semibold text-slate-700">${uid}</p>
+                        <p class="text-xs text-slate-400">${time}</p>
+                    </div>
+                    <div class="text-xs font-medium text-emerald-600 bg-emerald-50 px-2 py-1 rounded">Authorized</div>
+                `;
+
+                rfidContainer.insertBefore(logEntry, rfidContainer.firstChild);
+                
+                if(rfidContainer.children.length > MAX_LOGS) {
+                    rfidContainer.removeChild(rfidContainer.lastChild);
+                }
+
+                document.getElementById('log-count').textContent = `${Math.min(logCount, MAX_LOGS)}${logCount > MAX_LOGS ? '+' : ''} Events`;
             }
-        }
+        });
+
     </script>
 </body>
 </html>
