@@ -17,6 +17,8 @@
             --success: #2a9d8f;
             --warning: #e9c46a;
             --danger: #e76f51;
+            --occupied: #d62828;
+            --available: #588157;
         }
 
         * {
@@ -92,6 +94,7 @@
             box-shadow: 0 10px 30px rgba(0,0,0,0.05);
             transition: transform 0.3s ease;
             border-top: 5px solid var(--secondary-color);
+            position: relative;
         }
 
         .card:hover {
@@ -113,9 +116,25 @@
             color: var(--secondary-color);
         }
 
-        .card-icon {
-            font-size: 1.5rem;
-            color: var(--text-light);
+        /* Availability Badge */
+        .status-badge {
+            font-size: 0.9rem;
+            font-weight: bold;
+            padding: 8px 16px; /* Increased padding for box look */
+            border-radius: 6px; /* Made it more boxy (was 20px) */
+            color: white;
+            background-color: var(--text-light); /* Default */
+            transition: background-color 0.3s ease;
+        }
+
+        .status-badge.available {
+            background-color: var(--available);
+            box-shadow: 0 0 8px rgba(88, 129, 87, 0.4);
+        }
+
+        .status-badge.occupied {
+            background-color: var(--occupied);
+            box-shadow: 0 0 8px rgba(214, 40, 40, 0.4);
         }
 
         /* Battery Visual */
@@ -206,9 +225,9 @@
             color: var(--secondary-color);
         }
 
-        /* Queue Card */
-        .queue-card {
-            border-top-color: var(--danger);
+        /* Session/Info Card */
+        .info-card {
+            border-top-color: var(--primary-color);
             text-align: center;
             display: flex;
             flex-direction: column;
@@ -216,10 +235,10 @@
             align-items: center;
         }
 
-        .queue-count {
+        .session-count {
             font-size: 4rem;
             font-weight: 800;
-            color: var(--danger);
+            color: var(--secondary-color);
             line-height: 1;
             margin: 20px 0;
         }
@@ -252,11 +271,6 @@
             animation: slideIn 0.3s ease-out;
         }
 
-        .log-entry.exit {
-            border-left-color: var(--text-light);
-            background: #f4f4f4;
-        }
-
         .log-time {
             font-size: 0.8rem;
             color: #999;
@@ -271,6 +285,18 @@
         @media (max-width: 600px) {
             .data-grid {
                 grid-template-columns: 1fr;
+            }
+            
+            /* Updates to handle longer text on mobile */
+            .card-header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 12px;
+            }
+            
+            .status-badge {
+                width: 100%;
+                text-align: center;
             }
         }
     </style>
@@ -292,7 +318,7 @@
         <div class="card">
             <div class="card-header">
                 <div class="card-title">Charging Slot 1</div>
-                <i class="fas fa-plug card-icon"></i>
+                <div id="status-badge-1" class="status-badge">Unknown</div>
             </div>
             
             <div class="battery-container">
@@ -331,7 +357,7 @@
         <div class="card">
             <div class="card-header">
                 <div class="card-title">Charging Slot 2</div>
-                <i class="fas fa-plug card-icon"></i>
+                <div id="status-badge-2" class="status-badge">Unknown</div>
             </div>
             
             <div class="battery-container">
@@ -366,13 +392,13 @@
             </div>
         </div>
 
-        <!-- Queue Counter -->
-        <div class="card queue-card">
-            <div class="card-header" style="border-bottom: none; margin-bottom: 0;">
-                <div class="card-title" style="color: var(--danger);">Vehicles in Queue</div>
+        <!-- Sessions/Info Card (Replaced Queue) -->
+        <div class="card info-card">
+            <div class="card-header" style="border-bottom: none; margin-bottom: 0; width: 100%;">
+                <div class="card-title" style="width: 100%; text-align: center; color: var(--primary-color);">Active Sessions</div>
             </div>
-            <div class="queue-count" id="queueCount">0</div>
-            <p style="color: #666;">Waiting for a slot</p>
+            <div class="session-count" id="sessionCount">0</div>
+            <p style="color: #666;">Authorized RFID Users</p>
         </div>
 
         <!-- RFID Log -->
@@ -430,6 +456,21 @@
             }
         };
 
+        // Helper to update Slot Availability Status (IR Sensor Data)
+        const updateSlotStatus = (slotNum, isAvailable) => {
+            const badge = document.getElementById(`status-badge-${slotNum}`);
+            if(!badge) return;
+
+            // isAvailable comes from Arduino as a boolean (true = available/high, false = occupied/low)
+            if(isAvailable === true) {
+                badge.className = "status-badge available";
+                badge.innerHTML = '<i class="fas fa-check-circle"></i> Slot Available for Charging';
+            } else {
+                badge.className = "status-badge occupied";
+                badge.innerHTML = '<i class="fas fa-ban"></i> Car Charging - Slot Not Available';
+            }
+        };
+
         // Helper to update Battery UI
         const updateBattery = (slotNum, soc) => {
             const bar = document.getElementById(`bat-bar-${slotNum}`);
@@ -444,7 +485,6 @@
             text.textContent = percentage;
             bar.style.width = `${percentage}%`;
 
-            // Change color based on charge
             if (percentage < 20) {
                 bar.style.backgroundColor = "#e76f51"; // Red
             } else if (percentage < 50) {
@@ -456,7 +496,7 @@
 
         // ---- Data Listeners ----
 
-        // Slot 1 Data
+        // Slot 1 Data (Includes Power, Env, AND Status)
         onValue(ref(database, '/EV/Slot1'), (snapshot) => {
             const data = snapshot.val();
             if (data) {
@@ -466,6 +506,11 @@
                 setVal('temp1', data.Temperature, 1);
                 setVal('hum1', data.Humidity, 1);
                 updateBattery(1, data.SoC);
+                
+                // Update Availability Badge
+                if (data.IsAvailable !== undefined) {
+                    updateSlotStatus(1, data.IsAvailable);
+                }
             }
         });
 
@@ -479,14 +524,19 @@
                 setVal('temp2', data.Temperature, 1);
                 setVal('hum2', data.Humidity, 1);
                 updateBattery(2, data.SoC);
+
+                // Update Availability Badge
+                if (data.IsAvailable !== undefined) {
+                    updateSlotStatus(2, data.IsAvailable);
+                }
             }
         });
 
-        // Queue Count
-        onValue(ref(database, '/EV/WaitingCount'), (snapshot) => {
+        // Active Sessions (Replaced Queue)
+        onValue(ref(database, '/EV/ActiveSessions'), (snapshot) => {
             const count = snapshot.val();
-            const el = document.getElementById('queueCount');
-            el.textContent = count ? count : 0;
+            const el = document.getElementById('sessionCount');
+            el.textContent = count !== null ? count : 0;
             // Simple animation effect
             el.style.transform = "scale(1.1)";
             setTimeout(() => el.style.transform = "scale(1)", 200);
@@ -498,14 +548,7 @@
 
         onValue(ref(database, '/EV/RFID/UID'), (snapshot) => {
             const uid = snapshot.val();
-            
-            // If it's the first load or empty, don't log repeatedly
             if (!uid) return; 
-
-            // Only log if the UID effectively "Changed" (Basic Logic)
-            // Note: Real production logic usually uses a timestamp node in Firebase
-            // to distinguish new scans of the same card.
-            // Here we just check if the value exists and is different from previous state logic
             
             if (uid !== lastKnownUID) {
                 logRFID(uid);
@@ -514,7 +557,6 @@
         });
 
         function logRFID(uid) {
-            // Clear "Waiting..." message if it exists
             if (rfidContainer.innerText.includes("Waiting")) {
                 rfidContainer.innerHTML = "";
             }
@@ -526,7 +568,7 @@
             entry.className = "log-entry";
             entry.innerHTML = `
                 <div>
-                    <strong><i class="fas fa-user-tag"></i> Card Scanned</strong><br>
+                    <strong><i class="fas fa-user-tag"></i> RFID Scan</strong><br>
                     <span style="font-family: monospace; background: #eee; padding: 2px 5px; border-radius: 4px;">${uid}</span>
                 </div>
                 <div class="log-time">${timeString}</div>
@@ -534,7 +576,6 @@
             
             rfidContainer.prepend(entry);
 
-            // Keep log clean (max 20 entries)
             if (rfidContainer.children.length > 20) {
                 rfidContainer.removeChild(rfidContainer.lastChild);
             }
