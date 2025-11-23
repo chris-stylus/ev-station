@@ -120,6 +120,18 @@
                                         </div>
                                     </div>
                                     
+                                    <!-- Environment Metrics -->
+                                    <div class="grid grid-cols-2 gap-2 mt-2">
+                                        <div class="bg-blue-50 rounded-lg p-2 text-center">
+                                            <i data-lucide="thermometer" class="w-4 h-4 mx-auto text-blue-400 mb-1"></i>
+                                            <span class="text-sm font-bold text-slate-700"><span id="s1-temp">--</span>°C</span>
+                                        </div>
+                                        <div class="bg-cyan-50 rounded-lg p-2 text-center">
+                                            <i data-lucide="droplets" class="w-4 h-4 mx-auto text-cyan-400 mb-1"></i>
+                                            <span class="text-sm font-bold text-slate-700"><span id="s1-hum">--</span>%</span>
+                                        </div>
+                                    </div>
+
                                     <!-- Physical Status Badge -->
                                     <div id="s1-status-badge" class="mt-2 text-center px-3 py-2 rounded-lg text-xs font-bold uppercase tracking-wide bg-slate-100 text-slate-500">
                                         <i data-lucide="loader" class="w-3.5 h-3.5 animate-spin inline"></i> <span>Init...</span>
@@ -195,6 +207,18 @@
                                         </div>
                                     </div>
                                     
+                                    <!-- Environment Metrics -->
+                                    <div class="grid grid-cols-2 gap-2 mt-2">
+                                        <div class="bg-blue-50 rounded-lg p-2 text-center">
+                                            <i data-lucide="thermometer" class="w-4 h-4 mx-auto text-blue-400 mb-1"></i>
+                                            <span class="text-sm font-bold text-slate-700"><span id="s2-temp">--</span>°C</span>
+                                        </div>
+                                        <div class="bg-cyan-50 rounded-lg p-2 text-center">
+                                            <i data-lucide="droplets" class="w-4 h-4 mx-auto text-cyan-400 mb-1"></i>
+                                            <span class="text-sm font-bold text-slate-700"><span id="s2-hum">--</span>%</span>
+                                        </div>
+                                    </div>
+
                                      <!-- Physical Status Badge -->
                                      <div id="s2-status-badge" class="mt-2 text-center px-3 py-2 rounded-lg text-xs font-bold uppercase tracking-wide bg-slate-100 text-slate-500">
                                         <i data-lucide="loader" class="w-3.5 h-3.5 animate-spin inline"></i> <span>Init...</span>
@@ -400,6 +424,8 @@
             let rawAmps = parseFloat(data.Current || 0);
             let rawPower = parseFloat(data.Power || 0);
             let rawSoC = parseInt(data.SoC || 0);
+            let rawTemp = data.Temperature;
+            let rawHum = data.Humidity;
 
             if (rawAmps < -1.0) { rawAmps = 0; rawPower = 0; }
             if (rawVolts < VOLTAGE_THRESHOLD) { rawVolts = 0; rawAmps = 0; rawPower = 0; rawSoC = 0; }
@@ -410,6 +436,8 @@
             document.getElementById(`${idPrefix}-current`).textContent = rawAmps.toFixed(2);
             document.getElementById(`${idPrefix}-power`).textContent = rawPower.toFixed(2);
             document.getElementById(`${idPrefix}-soc`).textContent = rawSoC;
+            document.getElementById(`${idPrefix}-temp`).textContent = rawTemp || '--';
+            document.getElementById(`${idPrefix}-hum`).textContent = rawHum || '--';
 
             const badge = document.getElementById(`${idPrefix}-status-badge`);
             const isAvailable = data.IsAvailable === true;
