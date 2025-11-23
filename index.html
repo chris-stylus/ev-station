@@ -27,15 +27,130 @@
             animation: pulse-slow 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
         }
 
-        /* Offline Visuals - Reduced intensity so it doesn't look disabled */
+        /* Offline Visuals */
         .system-offline-overlay {
             opacity: 0.9;
             filter: grayscale(60%);
             transition: all 0.5s ease;
         }
+
+        /* Modal Transitions */
+        .modal {
+            transition: opacity 0.3s ease, visibility 0.3s ease;
+        }
+        .modal.hidden {
+            opacity: 0;
+            visibility: hidden;
+            pointer-events: none;
+        }
+        .modal:not(.hidden) {
+            opacity: 1;
+            visibility: visible;
+            pointer-events: auto;
+        }
     </style>
 </head>
-<body class="bg-slate-100 text-slate-800 font-sans pb-10 min-h-screen">
+<body class="bg-slate-100 text-slate-800 font-sans pb-10 min-h-screen relative">
+
+    <!-- 1. MASTER LOCK OVERLAY (Hardware Control) -->
+    <div id="master-lock-overlay" class="fixed inset-0 z-[100] bg-slate-900/95 hidden flex flex-col items-center justify-center text-white pointer-events-auto">
+        <div class="bg-slate-800 p-6 rounded-full mb-6 shadow-2xl border border-slate-700">
+            <i data-lucide="power-off" class="w-16 h-16 text-rose-500"></i>
+        </div>
+        <h1 class="text-4xl font-bold tracking-tighter mb-2 text-rose-500">SYSTEM OFFLINE</h1>
+        <p class="text-slate-400 text-lg">Turned off via Admin RFID Key</p>
+        <div class="mt-8 px-6 py-2 border border-slate-700 rounded-full bg-slate-800/50 text-sm font-mono text-slate-500">
+            Scan Master Key to Power On
+        </div>
+    </div>
+
+    <!-- 2. LOGIN MODAL (New System) -->
+    <div id="login-modal" class="modal fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center hidden">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md p-8 m-4">
+            <div class="text-center mb-6">
+                <div class="bg-blue-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 text-blue-600">
+                    <i data-lucide="user-circle" class="w-10 h-10"></i>
+                </div>
+                <h2 class="text-2xl font-bold text-slate-800">User Login</h2>
+                <p class="text-slate-500 text-sm">Enter your details to book a charging slot</p>
+            </div>
+            <form id="login-form" class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Full Name</label>
+                    <input type="text" id="login-name" required class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all" placeholder="e.g. John Doe">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Phone Number</label>
+                    <input type="tel" id="login-phone" required pattern="[0-9]{10}" class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all" placeholder="e.g. 9876543210">
+                </div>
+                <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg shadow-lg transition-all active:scale-95">
+                    Login to Dashboard
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- 3. BOOKING FORM MODAL (New System) -->
+    <div id="booking-modal" class="modal fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center hidden">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg p-6 m-4 max-h-[90vh] overflow-y-auto">
+            <div class="flex justify-between items-center mb-6 border-b border-slate-100 pb-4">
+                <div>
+                    <h2 class="text-xl font-bold text-slate-800 flex items-center gap-2">
+                        <i data-lucide="calendar-clock" class="text-blue-600"></i>
+                        Reserve <span id="booking-slot-name" class="text-blue-600">Slot</span>
+                    </h2>
+                    <p class="text-xs text-slate-500">Booking as <span id="booking-user-display" class="font-bold">User</span></p>
+                </div>
+                <button onclick="closeBookingModal()" class="p-2 hover:bg-slate-100 rounded-full text-slate-400 hover:text-slate-600 transition-colors">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+            
+            <form id="booking-form" class="space-y-4">
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Date</label>
+                        <input type="date" id="book-date" required class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:border-blue-500 outline-none text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Time</label>
+                        <input type="time" id="book-time" required class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:border-blue-500 outline-none text-sm">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Car Name / Model</label>
+                    <div class="relative">
+                        <i data-lucide="car" class="absolute left-3 top-2.5 w-4 h-4 text-slate-400"></i>
+                        <input type="text" id="book-car" required class="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:border-blue-500 outline-none text-sm" placeholder="e.g. Tesla Model 3">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Current Battery %</label>
+                    <div class="flex items-center gap-4">
+                        <input type="range" id="book-battery" min="0" max="100" value="50" class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-600">
+                        <span id="book-battery-val" class="text-sm font-bold text-blue-600 w-10">50%</span>
+                    </div>
+                </div>
+
+                <div class="bg-amber-50 border border-amber-100 p-4 rounded-lg">
+                    <label class="block text-xs font-bold text-amber-700 uppercase mb-1 flex items-center gap-1">
+                        <i data-lucide="key" class="w-3 h-3"></i> RFID Access Tag
+                    </label>
+                    <input type="text" id="book-rfid" required class="w-full px-3 py-2 bg-white border border-amber-200 rounded-lg focus:border-amber-500 outline-none text-sm font-mono uppercase placeholder:normal-case" placeholder="Enter RFID UID (e.g. 34A2B1C9)">
+                    <p class="text-[10px] text-amber-600 mt-1 leading-tight">
+                        * Required. This RFID tag will be used to physically unlock the charging station upon arrival.
+                    </p>
+                </div>
+
+                <button type="submit" class="w-full bg-slate-900 hover:bg-black text-white font-bold py-3 rounded-lg shadow-lg transition-all mt-4 flex items-center justify-center gap-2">
+                    <span>Confirm Booking</span>
+                    <i data-lucide="arrow-right" class="w-4 h-4"></i>
+                </button>
+            </form>
+        </div>
+    </div>
 
     <!-- Navbar -->
     <nav class="bg-slate-900 text-white shadow-xl sticky top-0 z-50">
@@ -49,10 +164,19 @@
                     <p class="text-xs text-slate-400">Real-time 18650 Monitoring</p>
                 </div>
             </div>
-            <!-- Connection Badge -->
-            <div id="connection-badge" class="flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold border bg-rose-500/20 border-rose-500/50 text-rose-400 transition-all duration-300">
-                <i data-lucide="wifi-off" class="w-3.5 h-3.5" id="connection-icon"></i>
-                <span id="connection-text">CONNECTING...</span>
+            <div class="flex items-center gap-3">
+                <!-- User Profile Badge (Hidden until login) -->
+                <div id="user-badge" class="hidden items-center gap-2 bg-slate-800 py-1 px-3 rounded-full border border-slate-700 cursor-pointer hover:bg-slate-700 transition-colors" onclick="logout()">
+                    <div class="w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center text-[10px] font-bold">U</div>
+                    <span id="user-name-display" class="text-xs font-medium text-slate-300 truncate max-w-[80px]">User</span>
+                    <i data-lucide="log-out" class="w-3 h-3 text-slate-400"></i>
+                </div>
+
+                <!-- Connection Badge -->
+                <div id="connection-badge" class="flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold border bg-rose-500/20 border-rose-500/50 text-rose-400 transition-all duration-300">
+                    <i data-lucide="wifi-off" class="w-3.5 h-3.5" id="connection-icon"></i>
+                    <span id="connection-text" class="hidden sm:inline">CONNECTING...</span>
+                </div>
             </div>
         </div>
     </nav>
@@ -75,7 +199,6 @@
                                 <div class="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center text-blue-600 font-black">1</div>
                                 Station A
                             </h2>
-                            <!-- AUTH STATUS BADGE -->
                             <div id="s1-auth-badge" class="hidden px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide"></div>
                         </div>
 
@@ -92,6 +215,7 @@
                                             </div>
                                             <div class="absolute inset-0 flex flex-col items-center justify-center z-10 mix-blend-multiply">
                                                 <span class="text-3xl font-black text-slate-800"><span id="s1-soc">0</span>%</span>
+                                                <span class="text-xs font-bold text-slate-600 mt-1 tracking-wider">SOC</span>
                                             </div>
                                         </div>
                                         <div class="w-10 h-2 bg-slate-700 rounded-t-md -mt-42 mb-1"></div>
@@ -106,13 +230,6 @@
                                 <!-- Metrics -->
                                 <div class="grid grid-cols-1 gap-3">
                                     <div class="flex items-center p-3 bg-slate-50 rounded-lg border border-slate-100">
-                                        <div class="p-2 rounded-full bg-amber-500 bg-opacity-10 mr-3 text-amber-600"><i data-lucide="zap" class="w-5 h-5"></i></div>
-                                        <div>
-                                            <p class="text-xs text-slate-500 uppercase font-bold tracking-wider">Power</p>
-                                            <p class="text-lg font-semibold text-slate-800"><span id="s1-power">0</span> W</p>
-                                        </div>
-                                    </div>
-                                    <div class="flex items-center p-3 bg-slate-50 rounded-lg border border-slate-100">
                                         <div class="p-2 rounded-full bg-violet-500 bg-opacity-10 mr-3 text-violet-600"><i data-lucide="activity" class="w-5 h-5"></i></div>
                                         <div>
                                             <p class="text-xs text-slate-500 uppercase font-bold tracking-wider">Current</p>
@@ -120,7 +237,7 @@
                                         </div>
                                     </div>
                                     
-                                    <!-- Environment Metrics -->
+                                    <!-- Environment -->
                                     <div class="grid grid-cols-2 gap-2 mt-2">
                                         <div class="bg-blue-50 rounded-lg p-2 text-center">
                                             <i data-lucide="thermometer" class="w-4 h-4 mx-auto text-blue-400 mb-1"></i>
@@ -132,7 +249,7 @@
                                         </div>
                                     </div>
 
-                                    <!-- Physical Status Badge -->
+                                    <!-- Physical Status -->
                                     <div id="s1-status-badge" class="mt-2 text-center px-3 py-2 rounded-lg text-xs font-bold uppercase tracking-wide bg-slate-100 text-slate-500">
                                         <i data-lucide="loader" class="w-3.5 h-3.5 animate-spin inline"></i> <span>Init...</span>
                                     </div>
@@ -142,13 +259,12 @@
                     </div>
                     
                     <!-- BOOKING CONTROLS SLOT 1 -->
-                    <!-- Added pointer-events-auto to ensure clicks work even if parent is "offline" -->
                     <div class="p-4 bg-slate-50 border-t border-slate-100 pointer-events-auto">
                         <div id="s1-booking-panel">
-                            <button onclick="window.bookSlot('Slot1')" id="s1-book-btn" class="w-full py-2.5 rounded-lg font-bold text-sm shadow-sm transition-all flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white active:scale-95">
+                            <button onclick="window.initiateBooking('Slot1')" id="s1-book-btn" class="w-full py-2.5 rounded-lg font-bold text-sm shadow-sm transition-all flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white active:scale-95">
                                 <i data-lucide="calendar-clock" class="w-4 h-4"></i> Book Slot 1
                             </button>
-                            <p id="s1-booking-msg" class="text-xs text-center mt-2 text-slate-400">Reserve this station for charging</p>
+                            <p id="s1-booking-msg" class="text-xs text-center mt-2 text-slate-400">Reserve this station</p>
                         </div>
                     </div>
                 </div>
@@ -162,7 +278,6 @@
                                 <div class="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center text-blue-600 font-black">2</div>
                                 Station B
                             </h2>
-                            <!-- AUTH STATUS BADGE -->
                             <div id="s2-auth-badge" class="hidden px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide"></div>
                         </div>
 
@@ -179,6 +294,7 @@
                                             </div>
                                             <div class="absolute inset-0 flex flex-col items-center justify-center z-10 mix-blend-multiply">
                                                 <span class="text-3xl font-black text-slate-800"><span id="s2-soc">0</span>%</span>
+                                                <span class="text-xs font-bold text-slate-600 mt-1 tracking-wider">SOC</span>
                                             </div>
                                         </div>
                                         <div class="w-10 h-2 bg-slate-700 rounded-t-md -mt-42 mb-1"></div>
@@ -193,13 +309,6 @@
                                 <!-- Metrics -->
                                 <div class="grid grid-cols-1 gap-3">
                                     <div class="flex items-center p-3 bg-slate-50 rounded-lg border border-slate-100">
-                                        <div class="p-2 rounded-full bg-amber-500 bg-opacity-10 mr-3 text-amber-600"><i data-lucide="zap" class="w-5 h-5"></i></div>
-                                        <div>
-                                            <p class="text-xs text-slate-500 uppercase font-bold tracking-wider">Power</p>
-                                            <p class="text-lg font-semibold text-slate-800"><span id="s2-power">0</span> W</p>
-                                        </div>
-                                    </div>
-                                    <div class="flex items-center p-3 bg-slate-50 rounded-lg border border-slate-100">
                                         <div class="p-2 rounded-full bg-violet-500 bg-opacity-10 mr-3 text-violet-600"><i data-lucide="activity" class="w-5 h-5"></i></div>
                                         <div>
                                             <p class="text-xs text-slate-500 uppercase font-bold tracking-wider">Current</p>
@@ -207,7 +316,7 @@
                                         </div>
                                     </div>
                                     
-                                    <!-- Environment Metrics -->
+                                    <!-- Environment -->
                                     <div class="grid grid-cols-2 gap-2 mt-2">
                                         <div class="bg-blue-50 rounded-lg p-2 text-center">
                                             <i data-lucide="thermometer" class="w-4 h-4 mx-auto text-blue-400 mb-1"></i>
@@ -219,7 +328,7 @@
                                         </div>
                                     </div>
 
-                                     <!-- Physical Status Badge -->
+                                     <!-- Physical Status -->
                                      <div id="s2-status-badge" class="mt-2 text-center px-3 py-2 rounded-lg text-xs font-bold uppercase tracking-wide bg-slate-100 text-slate-500">
                                         <i data-lucide="loader" class="w-3.5 h-3.5 animate-spin inline"></i> <span>Init...</span>
                                     </div>
@@ -228,13 +337,12 @@
                         </div>
                     </div>
                      <!-- BOOKING CONTROLS SLOT 2 -->
-                     <!-- Added pointer-events-auto here too -->
                      <div class="p-4 bg-slate-50 border-t border-slate-100 pointer-events-auto">
                         <div id="s2-booking-panel">
-                            <button onclick="window.bookSlot('Slot2')" id="s2-book-btn" class="w-full py-2.5 rounded-lg font-bold text-sm shadow-sm transition-all flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white active:scale-95">
+                            <button onclick="window.initiateBooking('Slot2')" id="s2-book-btn" class="w-full py-2.5 rounded-lg font-bold text-sm shadow-sm transition-all flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white active:scale-95">
                                 <i data-lucide="calendar-clock" class="w-4 h-4"></i> Book Slot 2
                             </button>
-                            <p id="s2-booking-msg" class="text-xs text-center mt-2 text-slate-400">Reserve this station for charging</p>
+                            <p id="s2-booking-msg" class="text-xs text-center mt-2 text-slate-400">Reserve this station</p>
                         </div>
                     </div>
                 </div>
@@ -242,7 +350,6 @@
 
             <!-- Right Column: Stats & Logs -->
             <div class="flex flex-col gap-6">
-                
                 <!-- Session Counter -->
                 <div class="bg-gradient-to-br from-blue-600 to-indigo-700 rounded-2xl shadow-lg p-6 text-white relative overflow-hidden">
                     <div class="absolute top-0 right-0 opacity-10 transform translate-x-4 -translate-y-4">
@@ -276,7 +383,6 @@
                         </div>
                     </div>
                 </div>
-
             </div>
         </div>
 
@@ -288,11 +394,9 @@
 
     <!-- JAVASCRIPT LOGIC -->
     <script type="module">
-        // Using stable Firebase version 10.8.0 to ensure prompts work correctly
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
         import { getDatabase, ref, onValue, set, get, child } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
-        // Configuration
         const firebaseConfig = {
             apiKey: "AIzaSyDDWy_6FbRAfr7DdHNUeWXfL7iYkL1-Xa0",
             authDomain: "ev-station-b57b1.firebaseapp.com",
@@ -303,14 +407,11 @@
             measurementId: "G-THKSGK2H9Z"
         };
 
-        // Init Firebase
         const app = initializeApp(firebaseConfig);
         const db = getDatabase(app);
 
-        // Initial Icon Render
         lucide.createIcons();
 
-        // State
         let lastUid = "";
         let logCount = 0;
         const MAX_LOGS = 20;
@@ -324,11 +425,148 @@
         const connectionText = document.getElementById('connection-text');
         const connectionIcon = document.getElementById('connection-icon');
         const mainContent = document.getElementById('main-content');
+        const masterLockOverlay = document.getElementById('master-lock-overlay');
+
+        // --- USER SESSION MANAGEMENT ---
+        let currentUser = JSON.parse(localStorage.getItem('ev_user')) || null;
+
+        function updateUIForUser() {
+            const badge = document.getElementById('user-badge');
+            const nameDisplay = document.getElementById('user-name-display');
+            if (currentUser) {
+                badge.classList.remove('hidden');
+                badge.classList.add('flex');
+                nameDisplay.textContent = currentUser.name;
+            } else {
+                badge.classList.add('hidden');
+                badge.classList.remove('flex');
+            }
+        }
+        updateUIForUser(); // Run on load
+
+        window.logout = () => {
+            if(confirm("Log out of this device?")) {
+                localStorage.removeItem('ev_user');
+                currentUser = null;
+                updateUIForUser();
+                location.reload();
+            }
+        };
+
+        // --- LOGIN FORM HANDLER ---
+        const loginModal = document.getElementById('login-modal');
+        const loginForm = document.getElementById('login-form');
+
+        loginForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const name = document.getElementById('login-name').value;
+            const phone = document.getElementById('login-phone').value;
+            
+            currentUser = { name, phone };
+            localStorage.setItem('ev_user', JSON.stringify(currentUser));
+            updateUIForUser();
+            
+            loginModal.classList.add('hidden');
+            // Re-trigger booking if user clicked a slot
+            if(pendingSlot) window.initiateBooking(pendingSlot);
+        });
+
+        // --- BOOKING FORM HANDLER ---
+        const bookingModal = document.getElementById('booking-modal');
+        const bookingForm = document.getElementById('booking-form');
+        const batterySlider = document.getElementById('book-battery');
+        const batteryVal = document.getElementById('book-battery-val');
+        let pendingSlot = null;
+
+        batterySlider.addEventListener('input', (e) => {
+            batteryVal.textContent = `${e.target.value}%`;
+        });
+
+        window.closeBookingModal = () => {
+            bookingModal.classList.add('hidden');
+            pendingSlot = null;
+        }
+
+        window.initiateBooking = (slotName) => {
+            if (!currentUser) {
+                pendingSlot = slotName;
+                loginModal.classList.remove('hidden');
+                return;
+            }
+            
+            pendingSlot = slotName;
+            document.getElementById('booking-slot-name').textContent = slotName;
+            document.getElementById('booking-user-display').textContent = currentUser.name;
+            
+            // Reset form
+            bookingForm.reset();
+            // Set default date to today
+            document.getElementById('book-date').valueAsDate = new Date();
+            
+            bookingModal.classList.remove('hidden');
+        };
+
+        bookingForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            if(!pendingSlot || !currentUser) return;
+
+            const date = document.getElementById('book-date').value;
+            const time = document.getElementById('book-time').value;
+            const car = document.getElementById('book-car').value;
+            const battery = document.getElementById('book-battery').value;
+            const rfid = document.getElementById('book-rfid').value.toUpperCase().trim();
+
+            if(!rfid) {
+                alert("RFID Tag is required to unlock the station!");
+                return;
+            }
+
+            set(ref(db, `/EV/Bookings/${pendingSlot}`), {
+                isBooked: true,
+                bookedBy: currentUser.name,
+                userPhone: currentUser.phone,
+                carModel: car,
+                batteryLevel: parseInt(battery),
+                bookingDate: date,
+                bookingTime: time,
+                bookedUID: rfid, // Critical for hardware
+                timestamp: Date.now()
+            })
+            .then(() => {
+                alert(`Slot ${pendingSlot} successfully booked!`);
+                closeBookingModal();
+            })
+            .catch((error) => {
+                console.error("Booking error", error);
+                alert("Booking failed. Check console.");
+            });
+        });
+
+        window.cancelSlot = (slotName) => {
+            if(confirm("Cancel this booking?")) {
+                set(ref(db, `/EV/Bookings/${slotName}`), null);
+            }
+        };
+
+        // --- FIREBASE LISTENERS ---
 
         onValue(ref(db, '/EV/Heartbeat'), (snap) => {
             if(snap.exists()) {
                 lastHeartbeatTime = Date.now();
                 updateOnlineStatus(true);
+            }
+        });
+
+        onValue(ref(db, '/EV/SystemState'), (snap) => {
+            const status = snap.val();
+            if (status === "OFFLINE" || status === "LOCKED") {
+                masterLockOverlay.classList.remove('hidden');
+                masterLockOverlay.classList.add('flex');
+                document.body.style.overflow = "hidden";
+            } else {
+                masterLockOverlay.classList.add('hidden');
+                masterLockOverlay.classList.remove('flex');
+                document.body.style.overflow = "auto";
             }
         });
 
@@ -342,7 +580,6 @@
                 connectionBadge.className = "flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold border transition-all duration-300 bg-rose-500/20 border-rose-500/50 text-rose-400 animate-pulse";
                 connectionText.textContent = "DEVICE OFFLINE";
                 connectionIcon.setAttribute('data-lucide', 'wifi-off');
-                // Added check to ensure this class exists in CSS without pointer-events: none
                 mainContent.classList.add('system-offline-overlay'); 
             }
             lucide.createIcons();
@@ -355,15 +592,11 @@
             }
         }, 2000);
 
-
-        // --- UI UPDATERS ---
-
         const updateSlot = (idPrefix, data, slotName) => {
-            // Default empty data object to prevent crashes if slot doesn't exist yet
             if(!data) data = {};
 
-            // --- AUTH STATUS BADGE (Hardware Response) ---
-            const authStatus = data.AuthStatus; // AUTHORIZED, DENIED, or PUBLIC_ACCESS
+            // --- AUTH STATUS BADGE ---
+            const authStatus = data.AuthStatus;
             const authBadge = document.getElementById(`${idPrefix}-auth-badge`);
             
             if(authStatus) {
@@ -374,10 +607,9 @@
                 } else if(authStatus === 'DENIED') {
                     authBadge.className = "px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide bg-rose-500 text-white";
                     authBadge.textContent = "ACCESS DENIED";
-                    // Hide after 3 seconds
                     setTimeout(() => authBadge.classList.add('hidden'), 3000);
                 } else {
-                     authBadge.classList.add('hidden'); // Hide for public/normal state
+                     authBadge.classList.add('hidden'); 
                 }
             }
 
@@ -393,14 +625,14 @@
                     btn.disabled = true;
                     btn.className = "w-full py-2.5 rounded-lg font-bold text-sm shadow-sm flex items-center justify-center gap-2 bg-slate-300 text-slate-500 cursor-not-allowed";
                     btn.innerHTML = `<i data-lucide="car" class="w-4 h-4"></i> Car Detected`;
-                    msg.textContent = "Slot occupied by a vehicle";
+                    msg.textContent = "Slot occupied";
                 } else if (bookingData && bookingData.isBooked) {
-                    const isMyBooking = bookingData.bookedBy === "User123"; // Simulating current user
+                    const isMyBooking = currentUser && bookingData.bookedBy === currentUser.name; 
                     if(isMyBooking) {
                         btn.disabled = false;
                         btn.className = "w-full py-2.5 rounded-lg font-bold text-sm shadow-sm flex items-center justify-center gap-2 bg-amber-500 hover:bg-amber-600 text-white active:scale-95";
-                        btn.innerHTML = `<i data-lucide="x-circle" class="w-4 h-4"></i> Cancel My Booking`;
-                        msg.textContent = "Reserved for you";
+                        btn.innerHTML = `<i data-lucide="x-circle" class="w-4 h-4"></i> Cancel Booking`;
+                        msg.textContent = `Booked for: ${bookingData.carModel}`;
                         btn.onclick = () => window.cancelSlot(slotName);
                     } else {
                         btn.disabled = true;
@@ -413,8 +645,7 @@
                     btn.className = "w-full py-2.5 rounded-lg font-bold text-sm shadow-sm transition-all flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white active:scale-95";
                     btn.innerHTML = `<i data-lucide="calendar-clock" class="w-4 h-4"></i> Book ${slotName}`;
                     msg.textContent = "Available for reservation";
-                    // Important: Explicitly attaching the onclick handler
-                    btn.onclick = () => window.bookSlot(slotName);
+                    btn.onclick = () => window.initiateBooking(slotName);
                 }
                 lucide.createIcons();
             });
@@ -434,7 +665,6 @@
 
             document.getElementById(`${idPrefix}-volts`).textContent = rawVolts.toFixed(2);
             document.getElementById(`${idPrefix}-current`).textContent = rawAmps.toFixed(2);
-            document.getElementById(`${idPrefix}-power`).textContent = rawPower.toFixed(2);
             document.getElementById(`${idPrefix}-soc`).textContent = rawSoC;
             document.getElementById(`${idPrefix}-temp`).textContent = rawTemp || '--';
             document.getElementById(`${idPrefix}-hum`).textContent = rawHum || '--';
@@ -472,47 +702,6 @@
             lucide.createIcons();
         };
 
-        // --- GLOBAL FUNCTIONS FOR BUTTONS ---
-        window.bookSlot = (slotName) => {
-            console.log(`Attempting to book: ${slotName}`);
-            
-            // Simple validation prompt
-            const name = prompt("Enter Name for Booking:");
-            if(!name) {
-                console.log("Booking cancelled: No name entered");
-                return;
-            }
-            
-            // RFID UID Prompt
-            const rfid = prompt("Enter your RFID Tag ID (HEX) to claim this spot:\n(Example: 34A2B1C9)");
-            
-            if(rfid) {
-                set(ref(db, `/EV/Bookings/${slotName}`), {
-                    isBooked: true,
-                    bookedBy: name,
-                    bookedUID: rfid.toUpperCase().trim(), // Store the UID
-                    timestamp: Date.now()
-                })
-                .then(() => {
-                    console.log("Booking successful!");
-                    alert(`Slot ${slotName} successfully booked for ${name}.`);
-                })
-                .catch((error) => {
-                    console.error("Booking failed: ", error);
-                    alert("Failed to book slot. Check console for details.");
-                });
-            } else {
-                 console.log("Booking cancelled: No RFID entered");
-            }
-        };
-
-        window.cancelSlot = (slotName) => {
-            if(confirm("Cancel this booking?")) {
-                set(ref(db, `/EV/Bookings/${slotName}`), null);
-            }
-        };
-
-        // --- LISTENERS ---
         onValue(ref(db, '/EV/Slot1'), (snap) => updateSlot('s1', snap.val(), 'Slot1'));
         onValue(ref(db, '/EV/Slot2'), (snap) => updateSlot('s2', snap.val(), 'Slot2'));
 
@@ -527,7 +716,6 @@
                 lastUid = uid;
                 logCount++;
                 if(rfidContainer.innerText.includes("Waiting")) rfidContainer.innerHTML = '';
-
                 const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
                 const logEntry = document.createElement('div');
                 logEntry.className = "flex items-center p-3 border-b border-slate-50 hover:bg-slate-50 transition-colors animate-fade-in-down";
@@ -544,7 +732,6 @@
                 document.getElementById('log-count').textContent = `${Math.min(logCount, MAX_LOGS)}${logCount > MAX_LOGS ? '+' : ''} Events`;
             }
         });
-
     </script>
 </body>
 </html>
