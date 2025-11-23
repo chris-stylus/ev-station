@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>EV Smart Station Dashboard</title>
+    <title>EV Smart Station - Login</title>
     
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -16,386 +16,422 @@
         ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-track { background: #f1f5f9; }
         ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
-        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
-        .mix-blend-multiply { mix-blend-mode: multiply; }
+        .hidden-view { display: none !important; }
         
-        @keyframes pulse-slow {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.5; }
-        }
-        .animate-pulse-slow {
-            animation: pulse-slow 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-        }
+        /* Animation for view switching */
+        .fade-in { animation: fadeIn 0.5s ease-in-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 
-        /* Offline Visuals */
-        .system-offline-overlay {
-            opacity: 0.9;
-            filter: grayscale(60%);
-            transition: all 0.5s ease;
-        }
+        /* Battery Fill Animation */
+        .battery-fill { transition: height 1s ease-out, background-color 0.5s ease; }
 
-        /* Modal Transitions */
-        .modal {
-            transition: opacity 0.3s ease, visibility 0.3s ease;
-        }
-        .modal.hidden {
-            opacity: 0;
-            visibility: hidden;
-            pointer-events: none;
-        }
-        .modal:not(.hidden) {
-            opacity: 1;
-            visibility: visible;
-            pointer-events: auto;
+        /* Slot Grid */
+        .slot-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+            gap: 0.5rem;
         }
     </style>
 </head>
-<body class="bg-slate-100 text-slate-800 font-sans pb-10 min-h-screen relative">
+<body class="bg-slate-50 text-slate-800 font-sans min-h-screen">
 
-    <!-- 1. MASTER LOCK OVERLAY (Hardware Control) -->
-    <div id="master-lock-overlay" class="fixed inset-0 z-[100] bg-slate-900/95 hidden flex flex-col items-center justify-center text-white pointer-events-auto">
-        <div class="bg-slate-800 p-6 rounded-full mb-6 shadow-2xl border border-slate-700">
-            <i data-lucide="power-off" class="w-16 h-16 text-rose-500"></i>
-        </div>
-        <h1 class="text-4xl font-bold tracking-tighter mb-2 text-rose-500">SYSTEM OFFLINE</h1>
-        <p class="text-slate-400 text-lg">Turned off via Admin RFID Key</p>
-        <div class="mt-8 px-6 py-2 border border-slate-700 rounded-full bg-slate-800/50 text-sm font-mono text-slate-500">
-            Scan Master Key to Power On
-        </div>
-    </div>
-
-    <!-- 2. LOGIN MODAL (New System) -->
-    <div id="login-modal" class="modal fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center hidden">
-        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md p-8 m-4">
-            <div class="text-center mb-6">
-                <div class="bg-blue-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 text-blue-600">
-                    <i data-lucide="user-circle" class="w-10 h-10"></i>
-                </div>
-                <h2 class="text-2xl font-bold text-slate-800">User Login</h2>
-                <p class="text-slate-500 text-sm">Enter your details to book a charging slot</p>
-            </div>
-            <form id="login-form" class="space-y-4">
-                <div>
-                    <label class="block text-sm font-medium text-slate-700 mb-1">Full Name</label>
-                    <input type="text" id="login-name" required class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all" placeholder="e.g. John Doe">
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-slate-700 mb-1">Phone Number</label>
-                    <input type="tel" id="login-phone" required pattern="[0-9]{10}" class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all" placeholder="e.g. 9876543210">
-                </div>
-                <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg shadow-lg transition-all active:scale-95">
-                    Login to Dashboard
-                </button>
-            </form>
-        </div>
-    </div>
-
-    <!-- 3. BOOKING FORM MODAL (New System) -->
-    <div id="booking-modal" class="modal fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center hidden">
-        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg p-6 m-4 max-h-[90vh] overflow-y-auto">
-            <div class="flex justify-between items-center mb-6 border-b border-slate-100 pb-4">
-                <div>
-                    <h2 class="text-xl font-bold text-slate-800 flex items-center gap-2">
-                        <i data-lucide="calendar-clock" class="text-blue-600"></i>
-                        Reserve <span id="booking-slot-name" class="text-blue-600">Slot</span>
-                    </h2>
-                    <p class="text-xs text-slate-500">Booking as <span id="booking-user-display" class="font-bold">User</span></p>
-                </div>
-                <button onclick="closeBookingModal()" class="p-2 hover:bg-slate-100 rounded-full text-slate-400 hover:text-slate-600 transition-colors">
-                    <i data-lucide="x" class="w-5 h-5"></i>
-                </button>
-            </div>
-            
-            <form id="booking-form" class="space-y-4">
-                <div class="grid grid-cols-2 gap-4">
-                    <div>
-                        <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Date</label>
-                        <input type="date" id="book-date" required class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:border-blue-500 outline-none text-sm">
-                    </div>
-                    <div>
-                        <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Time</label>
-                        <input type="time" id="book-time" required class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:border-blue-500 outline-none text-sm">
-                    </div>
-                </div>
-
-                <div>
-                    <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Car Name / Model</label>
-                    <div class="relative">
-                        <i data-lucide="car" class="absolute left-3 top-2.5 w-4 h-4 text-slate-400"></i>
-                        <input type="text" id="book-car" required class="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:border-blue-500 outline-none text-sm" placeholder="e.g. Tesla Model 3">
-                    </div>
-                </div>
-
-                <div>
-                    <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Current Battery %</label>
-                    <div class="flex items-center gap-4">
-                        <input type="range" id="book-battery" min="0" max="100" value="50" class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-600">
-                        <span id="book-battery-val" class="text-sm font-bold text-blue-600 w-10">50%</span>
-                    </div>
-                </div>
-
-                <div class="bg-amber-50 border border-amber-100 p-4 rounded-lg">
-                    <label class="block text-xs font-bold text-amber-700 uppercase mb-1 flex items-center gap-1">
-                        <i data-lucide="key" class="w-3 h-3"></i> RFID Access Tag
-                    </label>
-                    <input type="text" id="book-rfid" required class="w-full px-3 py-2 bg-white border border-amber-200 rounded-lg focus:border-amber-500 outline-none text-sm font-mono uppercase placeholder:normal-case" placeholder="Enter RFID UID (e.g. 34A2B1C9)">
-                    <p class="text-[10px] text-amber-600 mt-1 leading-tight">
-                        * Required. This RFID tag will be used to physically unlock the charging station upon arrival.
-                    </p>
-                </div>
-
-                <button type="submit" class="w-full bg-slate-900 hover:bg-black text-white font-bold py-3 rounded-lg shadow-lg transition-all mt-4 flex items-center justify-center gap-2">
-                    <span>Confirm Booking</span>
-                    <i data-lucide="arrow-right" class="w-4 h-4"></i>
-                </button>
-            </form>
-        </div>
-    </div>
-
-    <!-- Navbar -->
-    <nav class="bg-slate-900 text-white shadow-xl sticky top-0 z-50">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-            <div class="flex items-center gap-3">
-                <div class="bg-gradient-to-r from-blue-500 to-cyan-400 p-2 rounded-lg">
-                    <i data-lucide="battery-charging" class="text-white w-6 h-6"></i>
-                </div>
-                <div>
-                    <h1 class="text-lg font-bold tracking-tight">EV Smart Station</h1>
-                    <p class="text-xs text-slate-400">Real-time 18650 Monitoring</p>
-                </div>
-            </div>
-            <div class="flex items-center gap-3">
-                <!-- User Profile Badge (Hidden until login) -->
-                <div id="user-badge" class="hidden items-center gap-2 bg-slate-800 py-1 px-3 rounded-full border border-slate-700 cursor-pointer hover:bg-slate-700 transition-colors" onclick="logout()">
-                    <div class="w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center text-[10px] font-bold">U</div>
-                    <span id="user-name-display" class="text-xs font-medium text-slate-300 truncate max-w-[80px]">User</span>
-                    <i data-lucide="log-out" class="w-3 h-3 text-slate-400"></i>
-                </div>
-
-                <!-- Connection Badge -->
-                <div id="connection-badge" class="flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold border bg-rose-500/20 border-rose-500/50 text-rose-400 transition-all duration-300">
-                    <i data-lucide="wifi-off" class="w-3.5 h-3.5" id="connection-icon"></i>
-                    <span id="connection-text" class="hidden sm:inline">CONNECTING...</span>
-                </div>
-            </div>
-        </div>
-    </nav>
-
-    <!-- Main Content -->
-    <main id="main-content" class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-8 transition-all duration-500">
+    <!-- ======================= VIEW 1: LOGIN PAGE ======================= -->
+    <div id="login-view" class="min-h-screen flex flex-col items-center justify-center p-4 relative overflow-hidden">
         
-        <!-- Grid Layout -->
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+        <!-- GRAPHIC BACKGROUND -->
+        <div class="absolute inset-0 z-0">
+            <img src="https://images.unsplash.com/photo-1593941707882-a5bba14938c7?auto=format&fit=crop&w=2000&q=80" 
+                 alt="EV Charging Station Background" 
+                 class="w-full h-full object-cover"
+            >
+            <!-- Dark Overlay for readability -->
+            <div class="absolute inset-0 bg-slate-900/80 backdrop-blur-[4px]"></div>
+        </div>
+
+        <!-- HEADER CONTENT -->
+        <div class="relative z-10 text-center mb-10 animate-fade-in-down">
+            <div class="inline-flex items-center justify-center p-3 bg-blue-600/20 rounded-full border border-blue-400/30 backdrop-blur-md mb-4 shadow-xl ring-4 ring-blue-500/10">
+                <i data-lucide="zap" class="w-10 h-10 text-blue-400 fill-blue-400 animate-pulse"></i>
+            </div>
+            <h1 class="text-4xl md:text-6xl font-black text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-cyan-400 to-emerald-400 tracking-tighter uppercase drop-shadow-2xl">
+                Smart EV Charging Station
+            </h1>
+            <p class="text-slate-400 mt-3 text-lg font-medium tracking-wide">Next-Gen Power Management & Booking System</p>
+        </div>
+
+        <!-- LOGIN CARDS -->
+        <div class="relative z-10 bg-white/95 backdrop-blur-xl w-full max-w-4xl rounded-3xl shadow-2xl overflow-hidden flex flex-col md:flex-row border border-white/20">
             
-            <!-- Left Column: Charging Slots -->
-            <div class="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6">
-                
-                <!-- SLOT 1 CARD -->
-                <div class="bg-white rounded-2xl shadow-xl overflow-hidden border-t-4 border-blue-500 transition-all hover:shadow-2xl flex flex-col justify-between">
+            <!-- User Login Section -->
+            <div class="md:w-1/2 p-8 border-b md:border-b-0 md:border-r border-slate-100">
+                <div class="text-center mb-6">
+                    <div class="bg-blue-50 w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4 text-blue-600 shadow-inner">
+                        <i data-lucide="user" class="w-8 h-8"></i>
+                    </div>
+                    <h2 class="text-2xl font-bold text-slate-800">User Login</h2>
+                    <p class="text-slate-500 text-sm">Book slots & monitor charging status</p>
+                </div>
+                <form id="user-login-form" class="space-y-4">
                     <div>
-                        <!-- Header -->
-                        <div class="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
-                            <h2 class="text-lg font-bold text-slate-800 flex items-center gap-2">
-                                <div class="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center text-blue-600 font-black">1</div>
-                                Station A
-                            </h2>
-                            <div id="s1-auth-badge" class="hidden px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide"></div>
+                        <label class="block text-xs font-bold text-slate-500 uppercase mb-1 ml-1">Full Name</label>
+                        <div class="relative">
+                            <i data-lucide="smile" class="absolute left-3 top-3 w-5 h-5 text-slate-400"></i>
+                            <input type="text" id="u-name" required class="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all font-medium" placeholder="Enter your name">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 uppercase mb-1 ml-1">Phone Number</label>
+                        <div class="relative">
+                            <i data-lucide="phone" class="absolute left-3 top-3 w-5 h-5 text-slate-400"></i>
+                            <input type="tel" id="u-phone" required pattern="[0-9]{10}" class="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all font-medium" placeholder="10-digit number">
+                        </div>
+                    </div>
+                    <button type="submit" class="w-full bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-bold py-3.5 rounded-xl shadow-lg shadow-blue-500/30 transition-all active:scale-95 flex items-center justify-center gap-2">
+                        Login as User <i data-lucide="arrow-right" class="w-4 h-4"></i>
+                    </button>
+                </form>
+            </div>
+
+            <!-- Admin Login Section -->
+            <div class="md:w-1/2 p-8 bg-slate-50/50">
+                <div class="text-center mb-6">
+                    <div class="bg-slate-200 w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4 text-slate-700 shadow-inner">
+                        <i data-lucide="shield-check" class="w-8 h-8"></i>
+                    </div>
+                    <h2 class="text-2xl font-bold text-slate-800">Admin Login</h2>
+                    <p class="text-slate-500 text-sm">Manage bookings & system controls</p>
+                </div>
+                <form id="admin-login-form" class="space-y-4">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 uppercase mb-1 ml-1">Admin ID</label>
+                        <div class="relative">
+                            <i data-lucide="badge-check" class="absolute left-3 top-3 w-5 h-5 text-slate-400"></i>
+                            <input type="text" id="a-id" required class="w-full pl-10 pr-4 py-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-500 focus:border-slate-500 outline-none transition-all font-medium" placeholder="Enter Admin ID">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 uppercase mb-1 ml-1">Password</label>
+                        <div class="relative">
+                            <i data-lucide="lock" class="absolute left-3 top-3 w-5 h-5 text-slate-400"></i>
+                            <input type="password" id="a-pass" required class="w-full pl-10 pr-4 py-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-500 focus:border-slate-500 outline-none transition-all font-medium" placeholder="••••••••">
+                        </div>
+                    </div>
+                    <button type="submit" class="w-full bg-slate-800 hover:bg-slate-900 text-white font-bold py-3.5 rounded-xl shadow-lg shadow-slate-800/30 transition-all active:scale-95 flex items-center justify-center gap-2">
+                        Access Admin Panel <i data-lucide="key-round" class="w-4 h-4"></i>
+                    </button>
+                </form>
+            </div>
+        </div>
+        
+        <!-- Footer Note -->
+        <div class="relative z-10 mt-8 text-slate-400 text-xs font-medium">
+            © 2025 Smart EV Systems • Powered by ESP32 & Firebase
+        </div>
+    </div>
+
+    <!-- ======================= VIEW 2: USER DASHBOARD ======================= -->
+    <div id="user-view" class="hidden-view fade-in">
+        <nav class="bg-white text-slate-800 shadow-sm border-b border-slate-200 sticky top-0 z-50">
+            <div class="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <div class="bg-blue-600 p-1.5 rounded-lg text-white">
+                        <i data-lucide="zap" class="w-5 h-5"></i>
+                    </div>
+                    <h1 class="text-lg font-bold tracking-tight">EV Smart Station</h1>
+                </div>
+                <div class="flex items-center gap-4">
+                    <span id="user-welcome" class="text-sm font-medium text-slate-600 hidden sm:block">Hello, User</span>
+                    <button onclick="logout()" class="text-sm text-slate-500 hover:text-red-600 font-medium flex items-center gap-1">
+                        <i data-lucide="log-out" class="w-4 h-4"></i> Logout
+                    </button>
+                </div>
+            </div>
+        </nav>
+
+        <main class="max-w-7xl mx-auto px-4 mt-8 pb-20">
+            <div id="user-offline-banner" class="hidden bg-rose-500 text-white p-3 rounded-xl mb-6 text-center font-bold shadow-lg animate-pulse">
+                SYSTEM OFFLINE - MAINTENANCE MODE
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                
+                <!-- STATION A CARD -->
+                <div class="bg-white rounded-[2rem] shadow-xl shadow-slate-200/50 border border-slate-100 overflow-hidden relative flex flex-col">
+                    <!-- Header -->
+                    <div class="p-6 pb-0 flex justify-between items-center">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center font-black text-xl">1</div>
+                            <div>
+                                <h2 class="text-xl font-bold text-slate-800">Station A</h2>
+                                <div id="u-s1-status-text" class="text-xs font-bold text-emerald-600">Available</div>
+                            </div>
+                        </div>
+                        <div id="u-s1-auth-badge" class="hidden px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-emerald-100 text-emerald-600">Access Granted</div>
+                    </div>
+
+                    <div class="p-8 pt-6 grid grid-cols-2 gap-8">
+                        <!-- Battery Visual -->
+                        <div class="flex flex-col items-center justify-center">
+                            <div class="relative w-24 h-44 border-[6px] border-slate-800 rounded-3xl bg-slate-100 overflow-hidden mb-3 shadow-inner">
+                                <div id="u-s1-bat-fill" class="battery-fill absolute bottom-0 left-0 right-0 bg-slate-800" style="height: 0%"></div>
+                                <div class="absolute inset-0 flex flex-col items-center justify-center z-10">
+                                    <span class="text-3xl font-black text-slate-800 mix-blend-screen"><span id="u-s1-soc">0</span>%</span>
+                                    <span class="text-[10px] font-bold text-slate-500 mix-blend-multiply uppercase tracking-widest mt-1">SOC</span>
+                                </div>
+                            </div>
+                            <div class="bg-slate-50 border border-slate-200 px-4 py-1.5 rounded-full text-sm font-mono font-bold text-slate-600">
+                                <span id="u-s1-volts">0.00</span> V
+                            </div>
                         </div>
 
-                        <div class="p-6">
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <!-- Battery Graphic -->
-                                <div class="flex flex-col items-center justify-center bg-slate-50 rounded-xl p-2 border border-slate-100">
-                                    <div class="relative w-full flex flex-col items-center justify-center py-4">
-                                        <div class="relative w-24 h-40 border-4 border-slate-700 rounded-xl bg-slate-200 overflow-hidden shadow-inner">
-                                            <div id="s1-bat-fill" class="absolute bottom-0 left-0 right-0 bg-emerald-500 transition-all duration-1000 ease-out flex items-center justify-center" style="height: 0%">
-                                                <div id="s1-charge-icon" class="animate-pulse text-white opacity-50 hidden">
-                                                    <i data-lucide="zap" class="w-8 h-8" fill="currentColor"></i>
-                                                </div>
-                                            </div>
-                                            <div class="absolute inset-0 flex flex-col items-center justify-center z-10 mix-blend-multiply">
-                                                <span class="text-3xl font-black text-slate-800"><span id="s1-soc">0</span>%</span>
-                                                <span class="text-xs font-bold text-slate-600 mt-1 tracking-wider">SOC</span>
-                                            </div>
-                                        </div>
-                                        <div class="w-10 h-2 bg-slate-700 rounded-t-md -mt-42 mb-1"></div>
-                                        <div class="mt-3 text-center">
-                                            <span class="px-2 py-1 bg-slate-100 rounded text-xs font-mono text-slate-600 border border-slate-200">
-                                                <span id="s1-volts">0.0</span> V
-                                            </span>
-                                        </div>
-                                    </div>
+                        <!-- Metrics -->
+                        <div class="flex flex-col justify-between h-full py-2">
+                            <div class="bg-slate-50 rounded-2xl p-4 border border-slate-100 flex flex-col justify-center">
+                                <div class="flex items-center gap-3 mb-1">
+                                    <div class="p-2 bg-indigo-100 text-indigo-600 rounded-full"><i data-lucide="activity" class="w-5 h-5"></i></div>
+                                    <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">Current</span>
                                 </div>
+                                <div class="text-2xl font-bold text-slate-800 ml-1">
+                                    <span id="u-s1-amps">0.00</span> <span class="text-sm text-slate-400 font-medium">A</span>
+                                </div>
+                            </div>
 
-                                <!-- Metrics -->
-                                <div class="grid grid-cols-1 gap-3">
-                                    <div class="flex items-center p-3 bg-slate-50 rounded-lg border border-slate-100">
-                                        <div class="p-2 rounded-full bg-violet-500 bg-opacity-10 mr-3 text-violet-600"><i data-lucide="activity" class="w-5 h-5"></i></div>
-                                        <div>
-                                            <p class="text-xs text-slate-500 uppercase font-bold tracking-wider">Current</p>
-                                            <p class="text-lg font-semibold text-slate-800"><span id="s1-current">0</span> A</p>
-                                        </div>
-                                    </div>
-                                    
-                                    <!-- Environment -->
-                                    <div class="grid grid-cols-2 gap-2 mt-2">
-                                        <div class="bg-blue-50 rounded-lg p-2 text-center">
-                                            <i data-lucide="thermometer" class="w-4 h-4 mx-auto text-blue-400 mb-1"></i>
-                                            <span class="text-sm font-bold text-slate-700"><span id="s1-temp">--</span>°C</span>
-                                        </div>
-                                        <div class="bg-cyan-50 rounded-lg p-2 text-center">
-                                            <i data-lucide="droplets" class="w-4 h-4 mx-auto text-cyan-400 mb-1"></i>
-                                            <span class="text-sm font-bold text-slate-700"><span id="s1-hum">--</span>%</span>
-                                        </div>
-                                    </div>
-
-                                    <!-- Physical Status -->
-                                    <div id="s1-status-badge" class="mt-2 text-center px-3 py-2 rounded-lg text-xs font-bold uppercase tracking-wide bg-slate-100 text-slate-500">
-                                        <i data-lucide="loader" class="w-3.5 h-3.5 animate-spin inline"></i> <span>Init...</span>
-                                    </div>
+                            <div class="grid grid-cols-2 gap-3">
+                                <div class="bg-blue-50 rounded-2xl p-3 text-center border border-blue-100">
+                                    <i data-lucide="thermometer" class="w-4 h-4 mx-auto text-blue-400 mb-1"></i>
+                                    <div class="text-sm font-bold text-slate-700"><span id="u-s1-temp">--</span>°C</div>
+                                </div>
+                                <div class="bg-cyan-50 rounded-2xl p-3 text-center border border-cyan-100">
+                                    <i data-lucide="droplets" class="w-4 h-4 mx-auto text-cyan-400 mb-1"></i>
+                                    <div class="text-sm font-bold text-slate-700"><span id="u-s1-hum">--</span>%</div>
                                 </div>
                             </div>
                         </div>
                     </div>
                     
-                    <!-- BOOKING CONTROLS SLOT 1 -->
-                    <div class="p-4 bg-slate-50 border-t border-slate-100 pointer-events-auto">
-                        <div id="s1-booking-panel">
-                            <button onclick="window.initiateBooking('Slot1')" id="s1-book-btn" class="w-full py-2.5 rounded-lg font-bold text-sm shadow-sm transition-all flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white active:scale-95">
-                                <i data-lucide="calendar-clock" class="w-4 h-4"></i> Book Slot 1
-                            </button>
-                            <p id="s1-booking-msg" class="text-xs text-center mt-2 text-slate-400">Reserve this station</p>
+                    <!-- Queue List -->
+                    <div class="px-6 pb-4">
+                        <div class="bg-slate-50 rounded-xl p-4 border border-slate-100">
+                            <h4 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3 flex items-center gap-2">
+                                <i data-lucide="list" class="w-3 h-3"></i> Upcoming Queue
+                            </h4>
+                            <div id="u-s1-queue" class="space-y-2 max-h-32 overflow-y-auto text-sm">
+                                <p class="text-slate-400 italic text-xs">No upcoming bookings.</p>
+                            </div>
                         </div>
+                    </div>
+
+                    <!-- Booking Button -->
+                    <div class="px-6 pb-6 mt-auto">
+                        <button onclick="openScheduleModal('Slot1')" class="w-full py-3 rounded-xl bg-slate-900 text-white font-bold shadow-lg shadow-slate-300/50 hover:shadow-xl hover:scale-[1.02] transition-all flex items-center justify-center gap-2">
+                            <i data-lucide="calendar-plus" class="w-4 h-4"></i> View Schedule & Book
+                        </button>
                     </div>
                 </div>
 
-                <!-- SLOT 2 CARD -->
-                <div class="bg-white rounded-2xl shadow-xl overflow-hidden border-t-4 border-blue-500 transition-all hover:shadow-2xl flex flex-col justify-between">
-                    <div>
-                        <!-- Header -->
-                        <div class="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
-                            <h2 class="text-lg font-bold text-slate-800 flex items-center gap-2">
-                                <div class="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center text-blue-600 font-black">2</div>
-                                Station B
-                            </h2>
-                            <div id="s2-auth-badge" class="hidden px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide"></div>
+                <!-- STATION B CARD -->
+                <div class="bg-white rounded-[2rem] shadow-xl shadow-slate-200/50 border border-slate-100 overflow-hidden relative flex flex-col">
+                    <!-- Header -->
+                    <div class="p-6 pb-0 flex justify-between items-center">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center font-black text-xl">2</div>
+                            <div>
+                                <h2 class="text-xl font-bold text-slate-800">Station B</h2>
+                                <div id="u-s2-status-text" class="text-xs font-bold text-emerald-600">Available</div>
+                            </div>
+                        </div>
+                        <div id="u-s2-auth-badge" class="hidden px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-emerald-100 text-emerald-600">Access Granted</div>
+                    </div>
+
+                    <div class="p-8 pt-6 grid grid-cols-2 gap-8">
+                        <!-- Left: Battery -->
+                        <div class="flex flex-col items-center justify-center">
+                            <div class="relative w-24 h-44 border-[6px] border-slate-800 rounded-3xl bg-slate-100 overflow-hidden mb-3 shadow-inner">
+                                <div id="u-s2-bat-fill" class="battery-fill absolute bottom-0 left-0 right-0 bg-slate-800" style="height: 0%"></div>
+                                <div class="absolute inset-0 flex flex-col items-center justify-center z-10">
+                                    <span class="text-3xl font-black text-slate-800 mix-blend-screen"><span id="u-s2-soc">0</span>%</span>
+                                    <span class="text-[10px] font-bold text-slate-500 mix-blend-multiply uppercase tracking-widest mt-1">SOC</span>
+                                </div>
+                            </div>
+                            <div class="bg-slate-50 border border-slate-200 px-4 py-1.5 rounded-full text-sm font-mono font-bold text-slate-600">
+                                <span id="u-s2-volts">0.00</span> V
+                            </div>
                         </div>
 
-                        <div class="p-6">
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <!-- Battery Graphic -->
-                                <div class="flex flex-col items-center justify-center bg-slate-50 rounded-xl p-2 border border-slate-100">
-                                    <div class="relative w-full flex flex-col items-center justify-center py-4">
-                                        <div class="relative w-24 h-40 border-4 border-slate-700 rounded-xl bg-slate-200 overflow-hidden shadow-inner">
-                                            <div id="s2-bat-fill" class="absolute bottom-0 left-0 right-0 bg-emerald-500 transition-all duration-1000 ease-out flex items-center justify-center" style="height: 0%">
-                                                <div id="s2-charge-icon" class="animate-pulse text-white opacity-50 hidden">
-                                                    <i data-lucide="zap" class="w-8 h-8" fill="currentColor"></i>
-                                                </div>
-                                            </div>
-                                            <div class="absolute inset-0 flex flex-col items-center justify-center z-10 mix-blend-multiply">
-                                                <span class="text-3xl font-black text-slate-800"><span id="s2-soc">0</span>%</span>
-                                                <span class="text-xs font-bold text-slate-600 mt-1 tracking-wider">SOC</span>
-                                            </div>
-                                        </div>
-                                        <div class="w-10 h-2 bg-slate-700 rounded-t-md -mt-42 mb-1"></div>
-                                        <div class="mt-3 text-center">
-                                            <span class="px-2 py-1 bg-slate-100 rounded text-xs font-mono text-slate-600 border border-slate-200">
-                                                <span id="s2-volts">0.0</span> V
-                                            </span>
-                                        </div>
-                                    </div>
+                        <!-- Right: Metrics -->
+                        <div class="flex flex-col justify-between h-full py-2">
+                            <div class="bg-slate-50 rounded-2xl p-4 border border-slate-100 flex flex-col justify-center">
+                                <div class="flex items-center gap-3 mb-1">
+                                    <div class="p-2 bg-indigo-100 text-indigo-600 rounded-full"><i data-lucide="activity" class="w-5 h-5"></i></div>
+                                    <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">Current</span>
                                 </div>
+                                <div class="text-2xl font-bold text-slate-800 ml-1">
+                                    <span id="u-s2-amps">0.00</span> <span class="text-sm text-slate-400 font-medium">A</span>
+                                </div>
+                            </div>
 
-                                <!-- Metrics -->
-                                <div class="grid grid-cols-1 gap-3">
-                                    <div class="flex items-center p-3 bg-slate-50 rounded-lg border border-slate-100">
-                                        <div class="p-2 rounded-full bg-violet-500 bg-opacity-10 mr-3 text-violet-600"><i data-lucide="activity" class="w-5 h-5"></i></div>
-                                        <div>
-                                            <p class="text-xs text-slate-500 uppercase font-bold tracking-wider">Current</p>
-                                            <p class="text-lg font-semibold text-slate-800"><span id="s2-current">0</span> A</p>
-                                        </div>
-                                    </div>
-                                    
-                                    <!-- Environment -->
-                                    <div class="grid grid-cols-2 gap-2 mt-2">
-                                        <div class="bg-blue-50 rounded-lg p-2 text-center">
-                                            <i data-lucide="thermometer" class="w-4 h-4 mx-auto text-blue-400 mb-1"></i>
-                                            <span class="text-sm font-bold text-slate-700"><span id="s2-temp">--</span>°C</span>
-                                        </div>
-                                        <div class="bg-cyan-50 rounded-lg p-2 text-center">
-                                            <i data-lucide="droplets" class="w-4 h-4 mx-auto text-cyan-400 mb-1"></i>
-                                            <span class="text-sm font-bold text-slate-700"><span id="s2-hum">--</span>%</span>
-                                        </div>
-                                    </div>
-
-                                     <!-- Physical Status -->
-                                     <div id="s2-status-badge" class="mt-2 text-center px-3 py-2 rounded-lg text-xs font-bold uppercase tracking-wide bg-slate-100 text-slate-500">
-                                        <i data-lucide="loader" class="w-3.5 h-3.5 animate-spin inline"></i> <span>Init...</span>
-                                    </div>
+                            <div class="grid grid-cols-2 gap-3">
+                                <div class="bg-blue-50 rounded-2xl p-3 text-center border border-blue-100">
+                                    <i data-lucide="thermometer" class="w-4 h-4 mx-auto text-blue-400 mb-1"></i>
+                                    <div class="text-sm font-bold text-slate-700"><span id="u-s2-temp">--</span>°C</div>
+                                </div>
+                                <div class="bg-cyan-50 rounded-2xl p-3 text-center border border-cyan-100">
+                                    <i data-lucide="droplets" class="w-4 h-4 mx-auto text-cyan-400 mb-1"></i>
+                                    <div class="text-sm font-bold text-slate-700"><span id="u-s2-hum">--</span>%</div>
                                 </div>
                             </div>
                         </div>
                     </div>
-                     <!-- BOOKING CONTROLS SLOT 2 -->
-                     <div class="p-4 bg-slate-50 border-t border-slate-100 pointer-events-auto">
-                        <div id="s2-booking-panel">
-                            <button onclick="window.initiateBooking('Slot2')" id="s2-book-btn" class="w-full py-2.5 rounded-lg font-bold text-sm shadow-sm transition-all flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white active:scale-95">
-                                <i data-lucide="calendar-clock" class="w-4 h-4"></i> Book Slot 2
-                            </button>
-                            <p id="s2-booking-msg" class="text-xs text-center mt-2 text-slate-400">Reserve this station</p>
+                    
+                    <!-- Queue List -->
+                    <div class="px-6 pb-4">
+                        <div class="bg-slate-50 rounded-xl p-4 border border-slate-100">
+                            <h4 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3 flex items-center gap-2">
+                                <i data-lucide="list" class="w-3 h-3"></i> Upcoming Queue
+                            </h4>
+                            <div id="u-s2-queue" class="space-y-2 max-h-32 overflow-y-auto text-sm">
+                                <p class="text-slate-400 italic text-xs">No upcoming bookings.</p>
+                            </div>
                         </div>
+                    </div>
+
+                    <div class="px-6 pb-6 mt-auto">
+                        <button onclick="openScheduleModal('Slot2')" class="w-full py-3 rounded-xl bg-slate-900 text-white font-bold shadow-lg shadow-slate-300/50 hover:shadow-xl hover:scale-[1.02] transition-all flex items-center justify-center gap-2">
+                            <i data-lucide="calendar-plus" class="w-4 h-4"></i> View Schedule & Book
+                        </button>
+                    </div>
+                </div>
+
+            </div>
+        </main>
+    </div>
+
+    <!-- SCHEDULE BOOKING MODAL -->
+    <div id="schedule-modal" class="fixed inset-0 z-[60] bg-slate-900/80 backdrop-blur-sm hidden flex items-center justify-center p-4">
+        <div class="bg-white w-full max-w-lg rounded-2xl shadow-2xl p-6">
+            <div class="flex justify-between items-center mb-4 border-b border-slate-100 pb-2">
+                <h3 class="text-lg font-bold text-slate-800">Book <span id="sch-slot-name" class="text-blue-600">Slot</span></h3>
+                <button onclick="closeScheduleModal()" class="text-slate-400 hover:text-slate-600"><i data-lucide="x"></i></button>
+            </div>
+            
+            <div class="space-y-4">
+                <!-- Date Selector -->
+                <div>
+                    <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Select Date</label>
+                    <input type="date" id="sch-date" class="w-full px-4 py-2 border rounded-lg text-sm" onchange="generateTimeSlots()">
+                </div>
+
+                <!-- Time Slots Grid -->
+                <div>
+                    <label class="block text-xs font-bold text-slate-500 uppercase mb-2">Available Time Slots (30 min)</label>
+                    <div id="time-slots-container" class="slot-grid max-h-48 overflow-y-auto p-2 border rounded-lg bg-slate-50">
+                        <!-- Generated via JS -->
+                        <p class="text-center text-slate-400 text-xs col-span-full py-4">Select a date to view slots</p>
+                    </div>
+                    <div class="flex gap-3 mt-2 text-[10px] uppercase font-bold text-slate-400 justify-center">
+                        <div class="flex items-center gap-1"><div class="w-3 h-3 bg-emerald-100 border border-emerald-300 rounded"></div> Available</div>
+                        <div class="flex items-center gap-1"><div class="w-3 h-3 bg-amber-100 border border-amber-300 rounded"></div> Pending</div>
+                        <div class="flex items-center gap-1"><div class="w-3 h-3 bg-rose-100 border border-rose-300 rounded"></div> Booked</div>
+                    </div>
+                </div>
+
+                <!-- Details Form (Hidden until slot selected) -->
+                <div id="sch-details-form" class="hidden space-y-3 pt-4 border-t border-slate-100">
+                    <p class="text-sm font-bold text-blue-600">Booking for: <span id="sch-selected-time">--:--</span></p>
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-[10px] font-bold text-slate-500 uppercase">Car Name</label>
+                            <input type="text" id="sch-car-name" class="w-full px-3 py-2 border rounded text-sm" placeholder="Model S">
+                        </div>
+                        <div>
+                            <label class="block text-[10px] font-bold text-slate-500 uppercase">Car No.</label>
+                            <input type="text" id="sch-car-no" class="w-full px-3 py-2 border rounded text-sm" placeholder="DL-XX">
+                        </div>
+                    </div>
+                    <button onclick="confirmBooking()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg shadow mt-2">
+                        Request Booking (Needs Approval)
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ======================= VIEW 3: ADMIN DASHBOARD ======================= -->
+    <div id="admin-view" class="hidden-view fade-in">
+        <nav class="bg-slate-800 text-white shadow-xl sticky top-0 z-50">
+            <div class="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <i data-lucide="shield" class="text-emerald-400 w-6 h-6"></i>
+                    <h1 class="text-lg font-bold">Admin Panel</h1>
+                </div>
+                <button onclick="logout()" class="text-sm bg-slate-700 px-3 py-1 rounded hover:bg-slate-600 transition-colors">Logout</button>
+            </div>
+        </nav>
+
+        <main class="max-w-7xl mx-auto px-4 mt-8 pb-20">
+            
+            <!-- ADMIN LIVE MONITOR -->
+            <h2 class="text-xl font-bold text-slate-800 mb-4 flex items-center gap-2">
+                <i data-lucide="monitor-play" class="text-blue-600"></i> Live Station Monitor
+            </h2>
+            <!-- (Reusing similar cards for admin visual sync, simplified for space) -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-10">
+                <!-- Station A Admin -->
+                <div class="bg-white rounded-xl shadow p-4 border-l-4 border-blue-600">
+                    <div class="flex justify-between items-center mb-2">
+                        <h3 class="font-bold text-lg">Station A</h3>
+                        <div id="a-s1-status-box" class="text-[10px] font-bold uppercase px-2 py-1 bg-slate-100 rounded text-slate-500">Loading...</div>
+                    </div>
+                    <div class="flex justify-between text-sm">
+                        <span>Voltage: <span id="a-s1-volts" class="font-mono font-bold">0.0</span>V</span>
+                        <span>Current: <span id="a-s1-amps" class="font-mono font-bold">0.0</span>A</span>
+                        <span>SOC: <span id="a-s1-soc" class="font-bold text-blue-600">0</span>%</span>
+                    </div>
+                </div>
+                <!-- Station B Admin -->
+                <div class="bg-white rounded-xl shadow p-4 border-l-4 border-blue-600">
+                    <div class="flex justify-between items-center mb-2">
+                        <h3 class="font-bold text-lg">Station B</h3>
+                        <div id="a-s2-status-box" class="text-[10px] font-bold uppercase px-2 py-1 bg-slate-100 rounded text-slate-500">Loading...</div>
+                    </div>
+                    <div class="flex justify-between text-sm">
+                        <span>Voltage: <span id="a-s2-volts" class="font-mono font-bold">0.0</span>V</span>
+                        <span>Current: <span id="a-s2-amps" class="font-mono font-bold">0.0</span>A</span>
+                        <span>SOC: <span id="a-s2-soc" class="font-bold text-blue-600">0</span>%</span>
                     </div>
                 </div>
             </div>
 
-            <!-- Right Column: Stats & Logs -->
-            <div class="flex flex-col gap-6">
-                <!-- Session Counter -->
-                <div class="bg-gradient-to-br from-blue-600 to-indigo-700 rounded-2xl shadow-lg p-6 text-white relative overflow-hidden">
-                    <div class="absolute top-0 right-0 opacity-10 transform translate-x-4 -translate-y-4">
-                        <i data-lucide="users" class="w-32 h-32"></i>
+            <!-- Schedule & Queue List -->
+            <div class="bg-white rounded-xl shadow-lg p-6 mb-8">
+                <h2 class="text-xl font-bold text-slate-800 mb-4 flex items-center gap-2">
+                    <i data-lucide="calendar-clock" class="text-blue-500"></i> Master Schedule & Queue
+                </h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                        <h3 class="text-sm font-bold uppercase text-slate-500 mb-2">Station A Queue</h3>
+                        <div id="admin-s1-queue" class="space-y-2"></div>
                     </div>
-                    <div class="relative z-10">
-                        <h3 class="text-blue-100 font-medium mb-2 flex items-center gap-2">
-                            <i data-lucide="users" class="w-5 h-5"></i> Active Users
-                        </h3>
-                        <div class="flex items-baseline gap-2">
-                            <span id="session-count" class="text-5xl font-bold">0</span>
-                            <span class="text-blue-200 text-sm">Authenticated</span>
-                        </div>
-                        <div class="mt-4 h-1 w-full bg-blue-900/30 rounded-full overflow-hidden">
-                            <div class="h-full bg-blue-400 animate-pulse w-2/3"></div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- RFID Log -->
-                <div class="bg-white rounded-2xl shadow-lg border border-slate-100 overflow-hidden flex flex-col flex-1 min-h-[300px]">
-                    <div class="p-4 border-b border-slate-100 bg-slate-50/50 flex justify-between items-center">
-                        <h3 class="font-bold text-slate-700 flex items-center gap-2">
-                            <i data-lucide="history" class="w-4 h-4 text-slate-400"></i> Access Log
-                        </h3>
-                        <span id="log-count" class="text-xs bg-slate-200 text-slate-600 px-2 py-1 rounded-full">0 Events</span>
-                    </div>
-                    <div id="rfid-log-container" class="overflow-y-auto p-0 max-h-[300px]">
-                        <div class="p-8 text-center text-slate-400 text-sm italic">
-                            Waiting for RFID scans...
-                        </div>
+                    <div>
+                        <h3 class="text-sm font-bold uppercase text-slate-500 mb-2">Station B Queue</h3>
+                        <div id="admin-s2-queue" class="space-y-2"></div>
                     </div>
                 </div>
             </div>
-        </div>
 
-        <!-- Footer -->
-        <div class="text-center text-slate-400 text-sm mt-12">
-            <p>© 2025 EV Smart Station System • Powered by ESP32 & Firebase</p>
-        </div>
-    </main>
+            <!-- System Control -->
+            <div class="bg-slate-900 text-white rounded-xl shadow-lg p-6">
+                <h2 class="text-lg font-bold mb-2">System Status</h2>
+                <div id="admin-system-status" class="text-3xl font-black text-emerald-400 mb-2">ONLINE</div>
+                <p class="text-xs text-slate-400">Controlled via Master RFID Key</p>
+            </div>
+        </main>
+    </div>
 
     <!-- JAVASCRIPT LOGIC -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getDatabase, ref, onValue, set, get, child } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+        import { getDatabase, ref, onValue, set, push, remove, get } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyDDWy_6FbRAfr7DdHNUeWXfL7iYkL1-Xa0",
@@ -410,328 +446,402 @@
         const app = initializeApp(firebaseConfig);
         const db = getDatabase(app);
 
-        lucide.createIcons();
-
-        let lastUid = "";
-        let logCount = 0;
-        const MAX_LOGS = 20;
-        const VOLTAGE_THRESHOLD = 0.5; 
+        // --- STATE MANAGEMENT ---
+        const loginView = document.getElementById('login-view');
+        const userView = document.getElementById('user-view');
+        const adminView = document.getElementById('admin-view');
         
-        // --- HEARTBEAT & OFFLINE DETECTION ---
-        let lastHeartbeatTime = 0;
-        const OFFLINE_THRESHOLD_MS = 15000; 
+        let currentUser = JSON.parse(localStorage.getItem('ev_current_user')) || null;
 
-        const connectionBadge = document.getElementById('connection-badge');
-        const connectionText = document.getElementById('connection-text');
-        const connectionIcon = document.getElementById('connection-icon');
-        const mainContent = document.getElementById('main-content');
-        const masterLockOverlay = document.getElementById('master-lock-overlay');
+        function renderView() {
+            loginView.classList.add('hidden-view');
+            userView.classList.add('hidden-view');
+            adminView.classList.add('hidden-view');
 
-        // --- USER SESSION MANAGEMENT ---
-        let currentUser = JSON.parse(localStorage.getItem('ev_user')) || null;
-
-        function updateUIForUser() {
-            const badge = document.getElementById('user-badge');
-            const nameDisplay = document.getElementById('user-name-display');
-            if (currentUser) {
-                badge.classList.remove('hidden');
-                badge.classList.add('flex');
-                nameDisplay.textContent = currentUser.name;
+            if (!currentUser) {
+                loginView.classList.remove('hidden-view');
+            } else if (currentUser.role === 'admin') {
+                adminView.classList.remove('hidden-view');
+                setupAdminListeners();
             } else {
-                badge.classList.add('hidden');
-                badge.classList.remove('flex');
+                userView.classList.remove('hidden-view');
+                document.getElementById('user-welcome').textContent = `Hello, ${currentUser.name}`;
+                setupUserListeners();
             }
+            lucide.createIcons();
         }
-        updateUIForUser(); // Run on load
 
         window.logout = () => {
-            if(confirm("Log out of this device?")) {
-                localStorage.removeItem('ev_user');
-                currentUser = null;
-                updateUIForUser();
-                location.reload();
-            }
+            localStorage.removeItem('ev_current_user');
+            currentUser = null;
+            renderView();
         };
 
-        // --- LOGIN FORM HANDLER ---
-        const loginModal = document.getElementById('login-modal');
-        const loginForm = document.getElementById('login-form');
-
-        loginForm.addEventListener('submit', (e) => {
+        // --- LOGIN HANDLERS ---
+        document.getElementById('user-login-form').addEventListener('submit', (e) => {
             e.preventDefault();
-            const name = document.getElementById('login-name').value;
-            const phone = document.getElementById('login-phone').value;
-            
-            currentUser = { name, phone };
-            localStorage.setItem('ev_user', JSON.stringify(currentUser));
-            updateUIForUser();
-            
-            loginModal.classList.add('hidden');
-            // Re-trigger booking if user clicked a slot
-            if(pendingSlot) window.initiateBooking(pendingSlot);
+            const name = document.getElementById('u-name').value;
+            const phone = document.getElementById('u-phone').value;
+            currentUser = { role: 'user', name, phone };
+            localStorage.setItem('ev_current_user', JSON.stringify(currentUser));
+            renderView();
         });
 
-        // --- BOOKING FORM HANDLER ---
-        const bookingModal = document.getElementById('booking-modal');
-        const bookingForm = document.getElementById('booking-form');
-        const batterySlider = document.getElementById('book-battery');
-        const batteryVal = document.getElementById('book-battery-val');
-        let pendingSlot = null;
-
-        batterySlider.addEventListener('input', (e) => {
-            batteryVal.textContent = `${e.target.value}%`;
-        });
-
-        window.closeBookingModal = () => {
-            bookingModal.classList.add('hidden');
-            pendingSlot = null;
-        }
-
-        window.initiateBooking = (slotName) => {
-            if (!currentUser) {
-                pendingSlot = slotName;
-                loginModal.classList.remove('hidden');
-                return;
-            }
-            
-            pendingSlot = slotName;
-            document.getElementById('booking-slot-name').textContent = slotName;
-            document.getElementById('booking-user-display').textContent = currentUser.name;
-            
-            // Reset form
-            bookingForm.reset();
-            // Set default date to today
-            document.getElementById('book-date').valueAsDate = new Date();
-            
-            bookingModal.classList.remove('hidden');
-        };
-
-        bookingForm.addEventListener('submit', (e) => {
+        document.getElementById('admin-login-form').addEventListener('submit', (e) => {
             e.preventDefault();
-            if(!pendingSlot || !currentUser) return;
-
-            const date = document.getElementById('book-date').value;
-            const time = document.getElementById('book-time').value;
-            const car = document.getElementById('book-car').value;
-            const battery = document.getElementById('book-battery').value;
-            const rfid = document.getElementById('book-rfid').value.toUpperCase().trim();
-
-            if(!rfid) {
-                alert("RFID Tag is required to unlock the station!");
-                return;
-            }
-
-            set(ref(db, `/EV/Bookings/${pendingSlot}`), {
-                isBooked: true,
-                bookedBy: currentUser.name,
-                userPhone: currentUser.phone,
-                carModel: car,
-                batteryLevel: parseInt(battery),
-                bookingDate: date,
-                bookingTime: time,
-                bookedUID: rfid, // Critical for hardware
-                timestamp: Date.now()
-            })
-            .then(() => {
-                alert(`Slot ${pendingSlot} successfully booked!`);
-                closeBookingModal();
-            })
-            .catch((error) => {
-                console.error("Booking error", error);
-                alert("Booking failed. Check console.");
-            });
-        });
-
-        window.cancelSlot = (slotName) => {
-            if(confirm("Cancel this booking?")) {
-                set(ref(db, `/EV/Bookings/${slotName}`), null);
-            }
-        };
-
-        // --- FIREBASE LISTENERS ---
-
-        onValue(ref(db, '/EV/Heartbeat'), (snap) => {
-            if(snap.exists()) {
-                lastHeartbeatTime = Date.now();
-                updateOnlineStatus(true);
-            }
-        });
-
-        onValue(ref(db, '/EV/SystemState'), (snap) => {
-            const status = snap.val();
-            if (status === "OFFLINE" || status === "LOCKED") {
-                masterLockOverlay.classList.remove('hidden');
-                masterLockOverlay.classList.add('flex');
-                document.body.style.overflow = "hidden";
+            const id = document.getElementById('a-id').value;
+            const pass = document.getElementById('a-pass').value;
+            if(id === 'AdityaEV' && pass === 'aditya@ev') {
+                currentUser = { role: 'admin', name: 'Aditya' };
+                localStorage.setItem('ev_current_user', JSON.stringify(currentUser));
+                renderView();
             } else {
-                masterLockOverlay.classList.add('hidden');
-                masterLockOverlay.classList.remove('flex');
-                document.body.style.overflow = "auto";
+                alert('Invalid Admin Credentials');
             }
         });
 
-        function updateOnlineStatus(isOnline) {
-            if (isOnline) {
-                connectionBadge.className = "flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold border transition-all duration-300 bg-emerald-500/20 border-emerald-500/50 text-emerald-400";
-                connectionText.textContent = "DEVICE ONLINE";
-                connectionIcon.setAttribute('data-lucide', 'wifi');
-                mainContent.classList.remove('system-offline-overlay');
-            } else {
-                connectionBadge.className = "flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold border transition-all duration-300 bg-rose-500/20 border-rose-500/50 text-rose-400 animate-pulse";
-                connectionText.textContent = "DEVICE OFFLINE";
-                connectionIcon.setAttribute('data-lucide', 'wifi-off');
-                mainContent.classList.add('system-offline-overlay'); 
-            }
-            lucide.createIcons();
-        }
-
-        setInterval(() => {
-            const timeSinceLastBeat = Date.now() - lastHeartbeatTime;
-            if (timeSinceLastBeat > OFFLINE_THRESHOLD_MS) {
-                updateOnlineStatus(false);
-            }
-        }, 2000);
-
-        const updateSlot = (idPrefix, data, slotName) => {
-            if(!data) data = {};
-
-            // --- AUTH STATUS BADGE ---
-            const authStatus = data.AuthStatus;
-            const authBadge = document.getElementById(`${idPrefix}-auth-badge`);
+        // --- LIVE MONITOR (Shared) ---
+        function updateStationUI(prefix, data) {
+            let v = parseFloat(data.Voltage || 0);
+            if(v < 0.5) v = 0;
             
-            if(authStatus) {
-                authBadge.classList.remove('hidden');
-                if(authStatus === 'AUTHORIZED') {
-                    authBadge.className = "px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide bg-emerald-500 text-white animate-pulse";
-                    authBadge.textContent = "ACCESS GRANTED";
-                } else if(authStatus === 'DENIED') {
-                    authBadge.className = "px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide bg-rose-500 text-white";
-                    authBadge.textContent = "ACCESS DENIED";
-                    setTimeout(() => authBadge.classList.add('hidden'), 3000);
-                } else {
-                     authBadge.classList.add('hidden'); 
-                }
-            }
-
-            // --- BOOKING LOGIC ---
-            const bookingRef = ref(db, `/EV/Bookings/${slotName}`);
-            onValue(bookingRef, (bookSnap) => {
-                const bookingData = bookSnap.val();
-                const btn = document.getElementById(`${idPrefix}-book-btn`);
-                const msg = document.getElementById(`${idPrefix}-booking-msg`);
-                const isPhysicallyAvailable = data.IsAvailable === true;
-
-                if (!isPhysicallyAvailable && data.IsAvailable !== undefined) {
-                    btn.disabled = true;
-                    btn.className = "w-full py-2.5 rounded-lg font-bold text-sm shadow-sm flex items-center justify-center gap-2 bg-slate-300 text-slate-500 cursor-not-allowed";
-                    btn.innerHTML = `<i data-lucide="car" class="w-4 h-4"></i> Car Detected`;
-                    msg.textContent = "Slot occupied";
-                } else if (bookingData && bookingData.isBooked) {
-                    const isMyBooking = currentUser && bookingData.bookedBy === currentUser.name; 
-                    if(isMyBooking) {
-                        btn.disabled = false;
-                        btn.className = "w-full py-2.5 rounded-lg font-bold text-sm shadow-sm flex items-center justify-center gap-2 bg-amber-500 hover:bg-amber-600 text-white active:scale-95";
-                        btn.innerHTML = `<i data-lucide="x-circle" class="w-4 h-4"></i> Cancel Booking`;
-                        msg.textContent = `Booked for: ${bookingData.carModel}`;
-                        btn.onclick = () => window.cancelSlot(slotName);
-                    } else {
-                        btn.disabled = true;
-                        btn.className = "w-full py-2.5 rounded-lg font-bold text-sm shadow-sm flex items-center justify-center gap-2 bg-rose-100 text-rose-600 border border-rose-200 cursor-not-allowed";
-                        btn.innerHTML = `<i data-lucide="lock" class="w-4 h-4"></i> Reserved`;
-                        msg.textContent = `Booked by ${bookingData.bookedBy}`;
+            // Text Updates
+            const els = ['volts', 'amps', 'soc', 'temp', 'hum'];
+            els.forEach(key => {
+                const el = document.getElementById(`${prefix}-${key}`);
+                if(el) {
+                    if(key === 'volts') el.textContent = v.toFixed(2);
+                    else if(key === 'amps') {
+                        el.textContent = Math.abs(parseFloat(data.Current || 0)).toFixed(2);
                     }
-                } else {
-                    btn.disabled = false;
-                    btn.className = "w-full py-2.5 rounded-lg font-bold text-sm shadow-sm transition-all flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white active:scale-95";
-                    btn.innerHTML = `<i data-lucide="calendar-clock" class="w-4 h-4"></i> Book ${slotName}`;
-                    msg.textContent = "Available for reservation";
-                    btn.onclick = () => window.initiateBooking(slotName);
+                    else if(key === 'soc') el.textContent = data.SoC || 0;
+                    else if(key === 'temp') el.textContent = data.Temperature ? data.Temperature.toFixed(1) : '--';
+                    else if(key === 'hum') el.textContent = data.Humidity ? data.Humidity.toFixed(0) : '--';
                 }
-                lucide.createIcons();
             });
 
-            // --- SENSOR DATA LOGIC ---
-            let rawVolts = parseFloat(data.Voltage || 0);
-            let rawAmps = parseFloat(data.Current || 0);
-            let rawPower = parseFloat(data.Power || 0);
-            let rawSoC = parseInt(data.SoC || 0);
-            let rawTemp = data.Temperature;
-            let rawHum = data.Humidity;
+            // Battery Fill
+            const fillEl = document.getElementById(`${prefix}-bat-fill`);
+            if(fillEl) {
+                const soc = data.SoC || 0;
+                fillEl.style.height = `${soc}%`;
+                fillEl.className = `battery-fill absolute bottom-0 left-0 right-0 ${v===0 ? 'bg-slate-800' : (soc<20 ? 'bg-red-500' : (soc<60 ? 'bg-amber-500' : 'bg-emerald-500'))}`;
+            }
 
-            if (rawAmps < -1.0) { rawAmps = 0; rawPower = 0; }
-            if (rawVolts < VOLTAGE_THRESHOLD) { rawVolts = 0; rawAmps = 0; rawPower = 0; rawSoC = 0; }
-            if (rawAmps < 0) rawAmps = 0;
-            if (rawPower < 0) rawPower = 0;
+            // SMART STATUS LOGIC: Charging / Car Parking / Empty
+            // Logic:
+            // 1. If IsAvailable == true -> EMPTY
+            // 2. If IsAvailable == false (IR detects object):
+            //    a. If Voltage > 0 (Current flowing) -> CHARGING
+            //    b. If Voltage == 0 (No current) -> CAR PARKING
+            
+            const statusText = document.getElementById(`${prefix}-status-text`); // User View (Header)
+            const statusBox = document.getElementById(`${prefix}-status-box`); // User (Card) & Admin (Pill)
 
-            document.getElementById(`${idPrefix}-volts`).textContent = rawVolts.toFixed(2);
-            document.getElementById(`${idPrefix}-current`).textContent = rawAmps.toFixed(2);
-            document.getElementById(`${idPrefix}-soc`).textContent = rawSoC;
-            document.getElementById(`${idPrefix}-temp`).textContent = rawTemp || '--';
-            document.getElementById(`${idPrefix}-hum`).textContent = rawHum || '--';
+            let statusLabel = "Empty";
+            let statusClassUser = "bg-emerald-100 text-emerald-700"; // Large Badge style
+            let statusClassAdmin = "bg-emerald-100 text-emerald-700"; // Small pill style
+            let statusIcon = "check-circle";
 
-            const badge = document.getElementById(`${idPrefix}-status-badge`);
-            const isAvailable = data.IsAvailable === true;
-
-            if (isAvailable) {
-                badge.className = "mt-2 text-center px-3 py-2 rounded-lg text-xs font-bold uppercase tracking-wide bg-emerald-100 text-emerald-700";
-                badge.innerHTML = `<i data-lucide="check-circle" class="w-3.5 h-3.5 inline"></i> <span>Empty</span>`;
-            } else {
-                if (rawVolts === 0 && rawAmps === 0) {
-                      badge.className = "mt-2 text-center px-3 py-2 rounded-lg text-xs font-bold uppercase tracking-wide bg-amber-100 text-amber-700";
-                      badge.innerHTML = `<i data-lucide="alert-circle" class="w-3.5 h-3.5 inline"></i> <span>Parked</span>`;
+            // -- Logic --
+            if (data.IsAvailable === false) {
+                if (v > 0) {
+                    // Charging
+                    statusLabel = "Charging";
+                    statusClassUser = "bg-blue-100 text-blue-700 animate-pulse";
+                    statusClassAdmin = "bg-blue-100 text-blue-700 animate-pulse";
+                    statusIcon = "zap";
                 } else {
-                      badge.className = "mt-2 text-center px-3 py-2 rounded-lg text-xs font-bold uppercase tracking-wide bg-rose-100 text-rose-700";
-                      badge.innerHTML = `<i data-lucide="car" class="w-3.5 h-3.5 inline"></i> <span>Charging</span>`;
+                    // Car Parking (Parked but not charging)
+                    statusLabel = "Car Parking";
+                    statusClassUser = "bg-amber-100 text-amber-700";
+                    statusClassAdmin = "bg-amber-100 text-amber-700";
+                    statusIcon = "car";
+                }
+            } else {
+                // Empty
+                statusLabel = "Empty";
+                statusClassUser = "bg-emerald-100 text-emerald-700";
+                statusClassAdmin = "bg-emerald-100 text-emerald-700";
+                statusIcon = "check-circle";
+            }
+
+            // -- Apply to User View Header Text --
+            if (statusText) {
+                statusText.textContent = statusLabel;
+                // Reuse color classes but strip bg for header text if needed, or just apply text color
+                if(statusLabel === "Charging") statusText.className = "text-xs font-bold text-blue-600 animate-pulse";
+                else if(statusLabel === "Car Parking") statusText.className = "text-xs font-bold text-amber-600";
+                else statusText.className = "text-xs font-bold text-emerald-600";
+            }
+
+            // -- Apply to Status Box (User Large / Admin Small) --
+            if (statusBox) {
+                // Check if it's the Admin Pill (starts with 'a-') or User Box ('u-')
+                if (prefix.startsWith('a-')) {
+                    // Admin Pill Style
+                    statusBox.className = `text-[10px] font-bold uppercase px-2 py-1 rounded ${statusClassAdmin}`;
+                    statusBox.textContent = statusLabel;
+                } else {
+                    // User Large Box Style
+                    statusBox.className = `mt-auto py-3 rounded-xl font-bold text-center text-sm uppercase tracking-wide flex items-center justify-center gap-2 ${statusClassUser}`;
+                    statusBox.innerHTML = `<i data-lucide="${statusIcon}" class="w-4 h-4"></i> ${statusLabel}`;
                 }
             }
 
-            const fill = document.getElementById(`${idPrefix}-bat-fill`);
-            const chargeIcon = document.getElementById(`${idPrefix}-charge-icon`);
-            fill.style.height = `${rawSoC}%`;
-            fill.classList.remove('bg-emerald-500', 'bg-amber-400', 'bg-red-500', 'bg-slate-400');
-            
-            if (rawVolts === 0) fill.classList.add('bg-slate-400');
-            else if(rawSoC < 20) fill.classList.add('bg-red-500');
-            else if(rawSoC < 50) fill.classList.add('bg-amber-400');
-            else fill.classList.add('bg-emerald-500');
-
-            const isCharging = !isAvailable && (rawAmps > 0.1);
-            if(isCharging) chargeIcon.classList.remove('hidden');
-            else chargeIcon.classList.add('hidden');
-
+            // -- Auth Badge --
+            const authBadge = document.getElementById(`${prefix}-auth-badge`);
+            if(authBadge) {
+                if(data.AuthStatus === 'AUTHORIZED') {
+                    authBadge.classList.remove('hidden');
+                    authBadge.textContent = "ACCESS GRANTED";
+                } else if(data.AuthStatus === 'DENIED') {
+                    authBadge.classList.remove('hidden');
+                    authBadge.textContent = "ACCESS DENIED";
+                    authBadge.className = "hidden px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-rose-100 text-rose-600";
+                } else {
+                    authBadge.classList.add('hidden');
+                }
+            }
             lucide.createIcons();
+        }
+
+        function setupUserListeners() {
+            ['Slot1', 'Slot2'].forEach(slot => {
+                const prefix = slot === 'Slot1' ? 'u-s1' : 'u-s2';
+                onValue(ref(db, `/EV/${slot}`), (snap) => updateStationUI(prefix, snap.val() || {}));
+                // Listen for Queue
+                onValue(ref(db, `/EV/Schedule/${slot}`), (snap) => updateQueueList(slot, snap.val(), 'u'));
+            });
+            
+            onValue(ref(db, '/EV/SystemState'), (snap) => {
+                const banner = document.getElementById('user-offline-banner');
+                banner.classList.toggle('hidden', !(snap.val() === 'OFFLINE' || snap.val() === 'LOCKED'));
+            });
+        }
+
+        function setupAdminListeners() {
+            ['Slot1', 'Slot2'].forEach(slot => {
+                const prefix = slot === 'Slot1' ? 'a-s1' : 'a-s2';
+                onValue(ref(db, `/EV/${slot}`), (snap) => updateStationUI(prefix, snap.val() || {}));
+                // Listen for Queue
+                onValue(ref(db, `/EV/Schedule/${slot}`), (snap) => updateQueueList(slot, snap.val(), 'admin'));
+            });
+
+            onValue(ref(db, '/EV/SystemState'), (snap) => {
+                const el = document.getElementById('admin-system-status');
+                if(el) {
+                    const val = snap.val();
+                    el.textContent = val;
+                    el.className = `text-3xl font-black mb-2 ${val === 'ONLINE' ? 'text-emerald-400' : 'text-rose-500'}`;
+                }
+            });
+        }
+
+        // --- NEW: SCHEDULE & QUEUE LOGIC ---
+        
+        // Update Queue List UI
+        function updateQueueList(slot, scheduleData, viewPrefix) {
+            const prefix = slot === 'Slot1' ? 's1' : 's2';
+            const containerId = `${viewPrefix}-${prefix}-queue`;
+            const container = document.getElementById(containerId);
+            if(!container) return;
+
+            container.innerHTML = '';
+            
+            if(!scheduleData) {
+                container.innerHTML = '<p class="text-slate-400 italic text-xs">No upcoming bookings.</p>';
+                return;
+            }
+
+            // Convert object to array
+            const bookings = [];
+            Object.keys(scheduleData).forEach(dateKey => {
+                Object.keys(scheduleData[dateKey]).forEach(timeKey => {
+                    bookings.push({
+                        date: dateKey,
+                        time: timeKey,
+                        ...scheduleData[dateKey][timeKey]
+                    });
+                });
+            });
+
+            // Sort by Date then Time
+            bookings.sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time));
+
+            bookings.forEach(bk => {
+                const el = document.createElement('div');
+                // Styling: Pending vs Confirmed
+                const isPending = bk.status === 'pending';
+                const borderColor = isPending ? 'border-amber-300' : 'border-slate-200';
+                const bgColor = isPending ? 'bg-amber-50' : 'bg-white';
+                
+                el.className = `${bgColor} border ${borderColor} rounded p-2 flex justify-between items-center shadow-sm mb-2`;
+                
+                let actionButtons = '';
+                if (viewPrefix === 'admin' && isPending) {
+                    actionButtons = `
+                        <div class="flex gap-1">
+                            <button onclick="window.approveBooking('${slot}', '${bk.date}', '${bk.time}')" class="text-[10px] bg-emerald-600 text-white px-2 py-1 rounded hover:bg-emerald-700">Approve</button>
+                            <button onclick="window.rejectBooking('${slot}', '${bk.date}', '${bk.time}')" class="text-[10px] bg-rose-500 text-white px-2 py-1 rounded hover:bg-rose-600">Reject</button>
+                        </div>
+                    `;
+                } else {
+                    const badgeColor = isPending ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700';
+                    const badgeText = isPending ? 'Pending' : 'Booked';
+                    actionButtons = `<div class="text-[10px] font-bold ${badgeColor} px-2 py-1 rounded">${badgeText}</div>`;
+                }
+
+                el.innerHTML = `
+                    <div>
+                        <div class="text-xs font-bold text-slate-700">${bk.date} @ ${bk.time}</div>
+                        <div class="text-[10px] text-slate-500">${bk.userName} - ${bk.carName}</div>
+                    </div>
+                    ${actionButtons}
+                `;
+                container.appendChild(el);
+            });
+        }
+
+        // Modal & Booking Logic
+        let currentBookingSlot = null;
+        let selectedTimeSlot = null;
+        let existingBookingsForDate = {};
+
+        window.openScheduleModal = (slot) => {
+            currentBookingSlot = slot;
+            document.getElementById('sch-slot-name').textContent = slot;
+            document.getElementById('schedule-modal').classList.remove('hidden');
+            
+            const today = new Date().toISOString().split('T')[0];
+            const dateInput = document.getElementById('sch-date');
+            dateInput.value = today;
+            dateInput.min = today;
+            
+            window.generateTimeSlots();
         };
 
-        onValue(ref(db, '/EV/Slot1'), (snap) => updateSlot('s1', snap.val(), 'Slot1'));
-        onValue(ref(db, '/EV/Slot2'), (snap) => updateSlot('s2', snap.val(), 'Slot2'));
+        window.closeScheduleModal = () => {
+            document.getElementById('schedule-modal').classList.add('hidden');
+            document.getElementById('sch-details-form').classList.add('hidden');
+            selectedTimeSlot = null;
+        };
 
-        onValue(ref(db, '/EV/ActiveSessions'), (snap) => {
-            document.getElementById('session-count').textContent = snap.val() || 0;
-        });
+        window.generateTimeSlots = () => {
+            const date = document.getElementById('sch-date').value;
+            if(!date) return;
 
-        const rfidContainer = document.getElementById('rfid-log-container');
-        onValue(ref(db, '/EV/RFID/UID'), (snap) => {
-            const uid = snap.val();
-            if(uid && uid !== lastUid) {
-                lastUid = uid;
-                logCount++;
-                if(rfidContainer.innerText.includes("Waiting")) rfidContainer.innerHTML = '';
-                const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-                const logEntry = document.createElement('div');
-                logEntry.className = "flex items-center p-3 border-b border-slate-50 hover:bg-slate-50 transition-colors animate-fade-in-down";
-                logEntry.innerHTML = `
-                    <div class="w-8 h-8 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center text-xs font-bold mr-3">ID</div>
-                    <div class="flex-1">
-                        <p class="font-mono text-sm font-semibold text-slate-700">${uid}</p>
-                        <p class="text-xs text-slate-400">${time}</p>
-                    </div>
-                    <div class="text-xs font-medium text-slate-600 bg-slate-100 px-2 py-1 rounded">Scanned</div>
-                `;
-                rfidContainer.insertBefore(logEntry, rfidContainer.firstChild);
-                if(rfidContainer.children.length > MAX_LOGS) rfidContainer.removeChild(rfidContainer.lastChild);
-                document.getElementById('log-count').textContent = `${Math.min(logCount, MAX_LOGS)}${logCount > MAX_LOGS ? '+' : ''} Events`;
+            const container = document.getElementById('time-slots-container');
+            container.innerHTML = '<p class="text-center text-xs col-span-full">Loading...</p>';
+
+            get(ref(db, `/EV/Schedule/${currentBookingSlot}/${date}`)).then((snap) => {
+                existingBookingsForDate = snap.val() || {};
+                renderTimeSlots(date);
+            });
+        };
+
+        function renderTimeSlots(date) {
+            const container = document.getElementById('time-slots-container');
+            container.innerHTML = '';
+
+            const startHour = 8; 
+            const endHour = 22;
+            
+            for(let h = startHour; h < endHour; h++) {
+                for(let m = 0; m < 60; m += 30) {
+                    const timeStr = `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
+                    const booking = existingBookingsForDate[timeStr];
+                    
+                    const btn = document.createElement('button');
+                    btn.textContent = timeStr;
+                    
+                    if (booking) {
+                        // If Pending -> Amber/Yellow, If Confirmed -> Red
+                        if(booking.status === 'pending') {
+                            btn.className = "px-2 py-1 rounded bg-amber-100 text-amber-600 border border-amber-200 text-xs font-bold cursor-not-allowed";
+                            btn.title = "Pending Approval";
+                        } else {
+                            btn.className = "px-2 py-1 rounded bg-rose-100 text-rose-400 border border-rose-200 text-xs font-bold cursor-not-allowed opacity-60";
+                            btn.title = "Booked";
+                        }
+                        btn.disabled = true;
+                    } else {
+                        btn.className = "px-2 py-1 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-bold hover:bg-emerald-100 transition-colors";
+                        btn.onclick = () => selectTime(timeStr, btn);
+                    }
+                    
+                    container.appendChild(btn);
+                }
             }
-        });
+        }
+
+        function selectTime(time, btnElement) {
+            const prev = document.querySelector('.bg-blue-500.text-white');
+            if(prev) {
+                prev.classList.remove('bg-blue-500', 'text-white');
+                prev.classList.add('bg-emerald-50', 'text-emerald-700');
+            }
+
+            btnElement.classList.remove('bg-emerald-50', 'text-emerald-700');
+            btnElement.classList.add('bg-blue-500', 'text-white');
+
+            selectedTimeSlot = time;
+            document.getElementById('sch-selected-time').textContent = time;
+            document.getElementById('sch-details-form').classList.remove('hidden');
+        }
+
+        // USER: Request Booking (Creates Pending Status)
+        window.confirmBooking = () => {
+            if(!selectedTimeSlot || !currentBookingSlot || !currentUser) return;
+
+            const date = document.getElementById('sch-date').value;
+            const carName = document.getElementById('sch-car-name').value;
+            const carNo = document.getElementById('sch-car-no').value;
+
+            if(!carName || !carNo) {
+                alert("Please enter car details.");
+                return;
+            }
+
+            const bookingData = {
+                userName: currentUser.name,
+                userPhone: currentUser.phone,
+                carName: carName,
+                carNo: carNo,
+                status: 'pending', // <--- THIS MAKES IT YELLOW
+                rfid: 'N/A',
+                timestamp: Date.now()
+            };
+
+            set(ref(db, `/EV/Schedule/${currentBookingSlot}/${date}/${selectedTimeSlot}`), bookingData)
+                .then(() => {
+                    alert(`Booking Requested! Please wait for Admin Approval.\n${currentBookingSlot} @ ${date} ${selectedTimeSlot}`);
+                    window.closeScheduleModal();
+                })
+                .catch(err => {
+                    console.error(err);
+                    alert("Booking failed. Try again.");
+                });
+        };
+
+        // ADMIN: Approve Booking (Changes status to 'confirmed')
+        window.approveBooking = (slot, date, time) => {
+            const path = `/EV/Schedule/${slot}/${date}/${time}`;
+            // Just update the status field
+            set(ref(db, `${path}/status`), 'confirmed')
+                .then(() => alert("Booking Approved!"));
+        };
+
+        // ADMIN: Reject Booking (Deletes entry)
+        window.rejectBooking = (slot, date, time) => {
+            if(confirm("Reject this booking?")) {
+                const path = `/EV/Schedule/${slot}/${date}/${time}`;
+                set(ref(db, path), null)
+                    .then(() => alert("Booking Rejected/Removed."));
+            }
+        };
+
+        renderView();
     </script>
 </body>
 </html>
